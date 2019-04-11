@@ -1,0 +1,773 @@
+
+    <meta charset="utf-8">
+
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <link rel="stylesheet" href="{{url_for('static', filename = 'jquery.typeahead.css')}}">
+
+    <script src="http://code.jquery.com/jquery-2.1.0.min.js"></script>
+    <!--script src="../dist/jquery.typeahead.min.js"></script-->
+    <script src="{{url_for('static', filename = 'jquery.typeahead.js')}}"></script>
+
+    <script>
+    window.addEventListener('keydown',function(e){if(e.keyIdentifier=='U+000A'||e.keyIdentifier=='Enter'||e.keyCode==13)         {
+        if(true){e.preventDefault();return false;}}},true
+    );
+
+    var expNameArray = new Array();
+    var expValueArray = new Array();
+    
+    var ontNameArray = new Array();
+    var ontTypeArray = new Array();
+    var ontDetTypeArray = new Array();
+    
+        
+    var isOptionDirty = false;
+    var expNameCount = 0;
+    var expRepoCount = 0;
+        
+    var diffAllCount = 0;
+    var diffHighCount = 0;
+    var diffLowCount = 0;
+        
+    function validateForm(){
+        
+        //General confirmation
+        if (confirm('NOTE: this annotation will be added to dbBact and may be used by other users. Please proceed only if this is a real observation?') == false) 
+        {
+            return false;
+        }
+        
+        //Check fasta file is not empty
+        var fastaFilehiddenObj = document.getElementById('fastaFileTb');
+        if(fastaFilehiddenObj.value.trim().length  < 1)
+        {
+            alert('Fasta file name can\'t be empty');
+            return false;
+        }
+        
+        
+        //If exp list doesnt exist, dont submit
+        if( expNameCount == 0 )
+        {
+            if (confirm('Experiment name is missing, would you like to continue?') == false) 
+            {
+                return false;
+            }
+        }
+        
+        
+        //We prefer to have at least one repo record
+        if( expRepoCount == 0 )
+        {
+            if (confirm('No data repository detailes, would you like to continue?') == false) 
+            {
+                return false;
+            }
+        }
+        
+        //If is diff. Abundance, need at least 1 high, 1 low. Otherwise reject: “Differential abundance requires at least one term for high group and one term for low group”
+        if( (diffHighCount + diffAllCount + diffLowCount) > 0 && (diffHighCount == 0 || diffLowCount == 0) )
+        {
+            alert('Differential abundance requires at least one term for high group and one term for low group');
+            return false;
+        }
+        
+        //Less than 3 “all” details - ask are you sure - less than 3 “all” terms provided (usually should contain material/country/host)
+        if( diffAllCount < 3)
+        {
+            if (confirm('Less than 3 \"all\" terms provided (usually should contain material/country/host), are you sure you would like to continue?') == false) 
+            {
+                return false;
+            }
+        }
+    
+        
+        //All confirmation passed successfully
+        
+        var expLb = document.getElementById('expList');
+        var ontLb = document.getElementById('ontList');
+        
+        //Expirment list
+        var hiddenExpNameInfo = document.getElementById('hiddenExpNameId');
+        var hiddenExpValueInfo = document.getElementById('hiddenExpValueId');
+        
+        //Ontology list
+        var hiddenOntNameInfo = document.getElementById('hiddenOntNameId');
+        var hiddenOntTypeInfo = document.getElementById('hiddenOntTypeId');
+        var hiddenOntDetTypeInfo = document.getElementById('hiddenOntDetTypeId');
+    
+        
+        if( expLb.options.length <= 0 )
+        {
+            alert('Experiment details are missing');
+            return false;
+        }
+        
+        if( ontLb.options.length <= 0 )
+        {
+            alert('Ontology details are missing');
+            return false;
+        }
+        
+        //Check that the number of values is valid
+        if( hiddenExpNameInfo.length != hiddenExpValueInfo.length )
+        {
+            alert('Invalid experience list');
+            return false;
+        }
+        if( hiddenExpNameInfo.length != hiddenOntTypeInfo.length || hiddenOntTypeInfo.length != hiddenOntDetTypeInfo.length )
+        {
+            alert('Invalid ontology list');
+            return false;
+        }
+        ///////////////////////////////////////////////
+    
+        
+        //Create the list of exp
+        for (var i=0; i < expNameArray.length; i++) {
+            if( i == 0 )
+            {
+                hiddenExpNameInfo.value = expNameArray[i];
+                hiddenExpValueInfo.value = expValueArray[i];
+            }
+            else
+            {
+                hiddenExpNameInfo.value = hiddenExpNameInfo.value + ";" + expNameArray[i];
+                hiddenExpValueInfo.value = hiddenExpValueInfo.value + ";" + expValueArray[i];
+            }
+        }    
+        
+        //Create the list of ontologies
+        for (var i=0; i < ontNameArray.length; i++) {
+            if( i == 0 )
+            {
+                hiddenOntNameInfo.value = ontNameArray[i];
+                hiddenOntTypeInfo.value = ontTypeArray[i];
+                hiddenOntDetTypeInfo.value = ontDetTypeArray[i];
+            }
+            else
+            {
+                hiddenOntNameInfo.value = hiddenOntNameInfo.value + ";" + ontNameArray[i];
+                hiddenOntTypeInfo.value = hiddenOntTypeInfo.value + ";" + ontTypeArray[i];
+                hiddenOntDetTypeInfo.value = hiddenOntDetTypeInfo.value + ";" + ontDetTypeArray[i];
+            }
+        }    
+        
+        alert(hiddenOntNameInfo.value);
+        alert(hiddenOntTypeInfo.value);
+        alert(hiddenOntDetTypeInfo.value);
+        
+        
+        alert('debug mode, validation completed successfully');
+        return false;
+        //return true;
+    }
+    
+    function diffRbChange()
+    {    
+        var diffRb=document.getElementById('diffRb');
+
+        var allRb=document.getElementById('allRb');
+        var highRb=document.getElementById('highRb');
+        var lowRb=document.getElementById('lowRb');
+
+        if (diffRb.checked)
+        {
+            allRb.disabled = false;
+            highRb.disabled = false;
+            lowRb.disabled = false;
+        }
+        else
+        {
+            allRb.disabled = true;
+            highRb.disabled = true;
+            lowRb.disabled = true;
+        }
+    }
+
+        
+    function addExpToList(){
+        
+        var expName=document.getElementById('expNameTb').value.trim().toLowerCase();
+        var expValue=document.getElementById('expValueTb').value.trim().toLowerCase();
+        var selectLb = document.getElementById('expList');
+        
+        //Hidden objects 
+        var hiddenExpNameInfo = document.getElementById('hiddenExpNameId');
+        var hiddenExpValueInfo = document.getElementById('hiddenExpValueId');        
+        
+        if (expName.length < 1 || expValue.length  < 1)
+        {
+            alert('Experience name and value can\'t be empty');
+            return;
+        }
+        //If first time, clean all
+        if( isOptionDirty == false)
+        {
+            isOptionDirty = true;
+            expNameObj=document.getElementById('expNameTb');
+            selectLb.style.color='black';
+            expRemoveAll(); 
+        }
+        
+        //Added repo
+        if(expName == 'sra' || expName == 'qiita' || expName == 'dryad' || expName == 'mgrast')
+        {
+            expRepoCount = expRepoCount + 1;
+        }    
+        //Added name
+        if(expName == 'name')
+        {
+            expNameCount = expNameCount + 1;
+        }
+        
+        //document.getElementById('expNameTb').value = '';
+        document.getElementById('expValueTb').value = '';
+        selectLb.options[selectLb.options.length] = new Option(expName + ": " + expValue , expName + ";" + expValue );
+        
+        expNameArray.push(expName);
+        expValueArray.push(expValue);
+    }
+    
+    //Ont remove selected 
+    function ontRemoveSelected(){
+        var selectLb = document.getElementById('ontList');
+        lbSelectedIndex = selectLb.selectedIndex;
+            
+        if( lbSelectedIndex < 0 )
+        {
+            alert('Item need to be selected first');
+            return;
+        }
+        else
+        {
+            ontType = ontTypeArray[lbSelectedIndex];
+            ontDet = ontDetTypeArray[lbSelectedIndex];
+            
+            if( ontType == 'diffexp' )
+            {
+                if(ontDet == 'all')
+                {
+                    diffAllCount = diffAllCount - 1;
+                }
+                else if(ontDet == 'high' )
+                {
+                    diffHighCount = diffHighCount - 1;
+                }
+                else if(ontDet == 'low')
+                {
+                    diffLowCount = diffLowCount - 1;
+                }
+            }
+        }
+        selectLb.removeChild(selectLb[lbSelectedIndex]);
+        
+        //Remove from array
+        ontNameArray.splice(lbSelectedIndex,1);
+        ontTypeArray.splice(lbSelectedIndex,1);
+        ontDetTypeArray.splice(lbSelectedIndex,1);
+    }
+    
+    //Exp removed from list
+    function expRemoveSelected(){
+        
+        var selectLb = document.getElementById('expList');
+        lbSelectedIndex = selectLb.selectedIndex;
+        
+        if( lbSelectedIndex < 0 )
+        {
+            alert('Item need to be selected first');
+            return;
+        }
+        else
+        {
+            expName = expNameArray[lbSelectedIndex];
+            if(expName == 'name')
+            {
+                expNameCount = expNameCount - 1;
+            }
+            else if(expName == 'sra' || expName == 'qiita' || expName == 'dryad' || expName == 'mgrast')
+            {
+                expRepoCount = expRepoCount - 1;
+            }
+        }
+        selectLb.removeChild(selectLb[lbSelectedIndex]);
+        
+        //Remove from array
+        expNameArray.splice(lbSelectedIndex,1);
+        expValueArray.splice(lbSelectedIndex,1);
+    }
+        
+    //Exp remove all
+    function expRemoveAll(){
+        
+        var selectLb = document.getElementById('expList');
+        selectLb.innerHTML = "";
+        
+        //Remove from array
+        expNameArray.length = 0;
+        expValueArray.length = 0;
+        
+        //Reset the exp name flag
+        expNameCount = 0;
+        //Reset the exp repo flag
+        expRepoCount = 0;
+    }
+        
+    function ontRemoveAll(){
+        
+        var ontLb = document.getElementById('ontList');
+        ontLb.innerHTML = "";
+        
+        //Remove from array
+        ontNameArray.length = 0;
+        ontDetTypeArray.length = 0;
+        ontTypeArray.length = 0;
+        
+            
+        diffAllCount = 0;
+        diffHighCount = 0;
+        diffLowCount = 0;
+    }
+        
+        
+        
+    function addOntToList(){
+        
+        var ontNameObj=document.getElementById('ontTb');
+        var ontName=ontNameObj.value;
+        
+        if (ontName.length < 1)
+        {
+            alert('Ontology can\'t be empty');
+            return;
+        }
+        
+        var allRb=document.getElementById('allRb');
+        var highRb=document.getElementById('highRb');
+        var lowRb=document.getElementById('lowRb');
+        
+        var isALb=document.getElementById('isAList');
+        
+        var stringEle = '';
+        var typeVal;
+        var detTypeVal;
+        
+        var cbValue2;
+        var cbValue1;
+        
+        var isARb=document.getElementById('isARb');
+        var diffRb=document.getElementById('diffRb');
+        
+        
+        if(isARb.checked)
+        {    
+            stringEle = ontName + ' is a ';
+            cbValue1 = 0 ; //is A
+            
+            if( isALb.selectedIndex == 0 )
+                typeVal = "contamination";
+            else if( isALb.selectedIndex == 1 )
+                typeVal = "common";
+            else if( isALb.selectedIndex == 2 )
+                typeVal = "highfreq";
+            else if( isALb.selectedIndex == 3 )
+                typeVal = "other";
+            
+            stringEle = stringEle + typeVal;
+        }
+        else if (diffRb.checked)
+        {
+            stringEle = ontName + ' - differential presence: ';
+            cbValue1 = 1 ; //Differetial presence
+            typeVal = "diffexp";
+        }
+        else
+        {
+            alert('Please check one of the radio buttons: \'Is A\' or \'Differential presence\'');
+            return;
+        }
+        
+        
+        //if diff presence, add 'all' , 'high' or low
+        if (diffRb.checked)
+        {
+            if(allRb.checked)
+            {
+                cbValue2 = 0 ; //all
+                detTypeVal = "all";
+                diffAllCount = diffAllCount + 1;
+            }
+            else if (highRb.checked)
+            {
+                cbValue2 = 1 ; //high
+                detTypeVal = "high";
+                diffHighCount = diffHighCount + 1;
+            }
+            else if (lowRb.checked )
+            {
+                cbValue2 = 2 ; //low
+                detTypeVal = "low";
+                diffLowCount = diffLowCount + 1;
+            }
+            else
+            {
+                alert('One of the radio buttons (\'All\' , \'High\' or \'Low\') must be selected');
+                return;
+            }
+            stringEle = stringEle + detTypeVal
+        }
+        else
+        {
+            detTypeVal = "all";
+        }
+        
+        var ontLb = document.getElementById('ontList');
+        ontLb.options[ontLb.options.length] = new Option(stringEle);
+        
+        //Remove from array
+        ontNameArray.push(ontName);
+        ontTypeArray.push(typeVal);
+        ontDetTypeArray.push(detTypeVal);
+        
+        //Clear the text box
+        ontNameObj.value = '';
+
+    }
+        
+    function fileBrowse()
+    {
+        var textObj = document.getElementById('fastaFileTbDisp');
+        var hiddenObj = document.getElementById('fastaFileTb');
+        
+        hiddenObj.click();
+    }
+        
+    function alertFilename()
+    {
+        var thefile = document.getElementById('fastaFileTb');
+        var textObj = document.getElementById('fastaFileTbDisp'); 
+        
+        textObj.value = thefile.value.split(/(\\|\/)/g).pop();
+    }
+
+</script>
+<body>
+<font face="arial" size="5" color="black">    
+<form onsubmit="return validateForm()" action="add_data_results" method='post' enctype = "multipart/form-data">
+    <input type = "hidden" name = "hiddenExpName" id="hiddenExpNameId" />
+    <input type = "hidden" name = "hiddenExpValue" id="hiddenExpValueId" />
+        
+    <input type = "hidden" name = "hiddenOntName" id="hiddenOntNameId" />
+    <input type = "hidden" name = "hiddenOntType" id="hiddenOntTypeId" />
+    <input type = "hidden" name = "hiddenOntDetType" id="hiddenOntDetTypeId" />
+    
+    <center>
+    <TABLE id="GridView1" border="0" cellSpacing="0"
+        style="BORDER: #714938 0px solid; BORDER-COLLAPSE: collapse;">
+        <TBODY><TR><TD colSpan=2><h1><b>Add Data</b></h1></TD></TR></TBODY>
+    </TABLE>
+    <TABLE id="mainTable" border="0" cellSpacing="0"
+        style="font-weight:bold; table-layout: fixed; width:80% ; BORDER: #A1BCD1 3px solid; BORDER-COLLAPSE: collapse; background-color:#EAF0F8">
+        <THEAD>
+            <tr height="0" style="display: none; ">
+                <th></th>
+                <th></th> 
+                <th></th>
+                <th></th>
+                <th></th> 
+                <th></th>
+                <th></th>
+                <th></th> 
+                <th></th>
+                <th></th>
+            </tr>
+        </THEAD>
+        <TBODY>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD style="height: 30px" colspan="9"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD colspan="9"><font color="#006e98">Step 1:</font> Select fasta file</TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD colspan="1"></TD>
+                <TD colspan="4" colspan="1">
+                <input type='text' id='fastaFileTbDisp' name='fastaFileTbDisp' class="form-control input-lg" style='width: calc(100% - 40px); margin: 20px; overflow: auto; border: 1px solid black;' readonly>
+                </TD>
+                <TD style="width:33%">
+                <input type="file" id="fastaFileTb" name="fastaFileTb" style="display:none;" onchange="alertFilename()" />
+                <input type="button" id="fileBrowseBut" value="browse"  onClick="fileBrowse();" style="width:100px"/>
+                </TD>
+                <TD  colspan="1"></TD>
+                <TD colspan="1">
+                    Region: 
+                </TD>
+                <TD  colspan="2">
+                    <select name="hiddenRegion" id="hiddenRegion" style="width:160px" >
+                        <option value="V4">V4</option>
+                        <option value="V4">ITS1</option>
+                    </select>
+                </TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD style="height: 30px" colspan="10"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD colspan="9"><font color="#006e98">Step 2:</font> Experiment details (for a new experiment a new ID will be created)</TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD  colspan="1"></TD>
+                <TD tyle="white-space: nowrap;" width="45%" >Type:</TD> 
+                <!--</TD>
+                <TD width="35%">-->
+                    <!--<input width="600px" type = "text" class="form-control input-lg" id="expNameTb" />-->
+                <TD>    
+                    <select id="expNameTb" style="width: 160" >
+                        <option value="name">name</option>
+                        <option value="http">http</option>
+                        <option value="doi">doi</option>
+                        <option value="mgrast">mgrast</option>
+                        <option value="dryad">dryad</option>
+                        <option value="sra">sra</option>
+                        <option value="pubmed">pubmed</option>
+                        <option value="qiita">qiita</option>
+                    </select>
+                </TD>
+                <TD></TD>
+                <TD style="white-space: nowrap;" width="45%">Value:</TD> 
+                <TD colspan="2" ><input type = "text" id = "expValueTb" /></TD>
+                <!--</TD>
+                <TD width="35%">-->
+                <TD></TD>
+                <TD width="10%"><input valign="left" type="button" onclick="addExpToList();" id="expPlus" value="add" style="width:100%"/></TD>
+                <TD></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD colspan="8" >
+                    <select name="expList1" id="expList" size="6" style="color:gray; width: 100%; font-family: Arial; font-size: 25px;" multiple>
+                        <option>&lt;&lt;&lt;Example&gt;&gt;&gt;</option>
+                        <option title="name: Temporal and regional variability in the skin microbiome of humpback whales along the Western Antarctic Peninsula">name: Temporal and regional variability in the skin microbiome of humpback whales along the Western Antarctic Peninsula</option>
+                        <option title="sra: PRJNA395930">sra: PRJNA395930</option>
+                        <option title="pumbed: 29269499">pumbed: 29269499</option>
+                        <option title="Doi: 10.1128/AEM.02574-17">Doi: 10.1128/AEM.02574-17</option>
+                    </select>
+                </TD>
+                <TD colspan="1"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD colspan="1" ></TD>
+                <TD colspan="2" >
+                    <font face="arial" size="3" color="black">    
+                    <input type="button" onclick="expRemoveSelected();" id = "expMinus" value="Remove Selected" style="margin:0px; padding:5px; width:150px"/>
+                    </font>
+                </TD>
+                <TD colspan="2">
+                    <font face="arial" size="3" color="black">    
+                    <input type="button" onclick="expRemoveAll();" id = "expMinusAll" value="Remove All" style="margin:0px; padding:5px; width:150px"/>
+                    </font>
+                </TD>
+                <TD colspan="5">
+                    
+                </TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD style="height: 30px" colspan="9"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD colspan="1"></TD>
+                <TD colspan="9"><font color="#006e98">Step 3:</font> Add annotations</TD>
+            </TR>
+            
+            <TR style="background-color:#EAF0F8">
+                <TD colspan="1"></TD>
+                <TD colspan="1">
+                    <input type="radio" name="ontType" id="isARb" checked="True" onchange="diffRbChange();">
+                    <label style="min-width:30px;width: auto !important;width:30px;">Is A </label>
+                </TD>
+                <TD colspan="7">
+                    <select id="isAList" style="width: 320px" >
+                        <option value="contaminant">contaminant</option>
+                        <option value="common">common (>50% of samples)</option>
+                        <option value="high">high freq (>1% of reads)</option>
+                        <option value="other">other</option>
+                    </select>
+                </TD>
+                
+                <TD colspan="1"></TD>
+            </TR>
+            
+            <TR style="background-color:#EAF0F8">
+                <TD colspan="1"></TD>
+                <TD colspan="3">
+                    <input type="radio" name="ontType" id="diffRb" onchange="diffRbChange();">
+                    <label>Differential presence</label>
+                </TD>
+                <TD colspan="5">
+                    <input type="radio" name="groupRb1" id="allRb" checked="True" disabled="True">
+                        <label>All</label>
+                    <input type="radio" name="groupRb1" id="highRb" disabled="True">
+                        <label>High</label>
+                    <input type="radio" name="groupRb1" id="lowRb" disabled="True">
+                        <label>Low</label>
+                </TD>
+                
+                <TD colspan="1"></TD>
+            </TR>
+            
+            <TR style="background-color:#EAF0F8">
+                <TD colspan="1"></TD>
+                <TD colspan="7">
+                <div class="js-result-container"></div>
+                <div class="typeahead__container">
+                    <div class="typeahead__field">
+                        <span class="typeahead__query">
+                            <input class="js-typeahead"
+                            id ="ontTb"
+                            name="q"
+                            type="search"
+                            autofocus
+                            autocomplete="off">
+                            </span>
+                        </div>
+                    </div>
+                </TD>
+                <TD width="10%"><input type="button" onclick="addOntToList();" id = "ontPlus" value="add" style="width:100%"/></TD>
+                <TD colspan="1"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD colspan="1"></TD>
+                <TD colspan="8">
+                    <select id="ontList" size="6" style="color:black; width: 100%; font-family: Arial; font-size: 25px;" multiple>
+                    </select>
+                </TD>
+                <TD colspan="1"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD colspan="2">
+                    <font face="arial" size="3" color="black">    
+                    <input type="button" id = "ontMinus" onclick="ontRemoveSelected();" id = "ontPlus" value="Remove Selected" style="margin:0px; padding:5px; width:150px"/>
+                    </font>
+                </TD>
+                <TD colspan="2">
+                    <font face="arial" size="3" color="black">    
+                    <input type="button" onclick="ontRemoveAll();" id = "ontPlus" value="Remove All" style="margin:0px; padding:5px; width:150px"/>
+                    </font>
+                </TD>
+                <TD colspan="5">
+                    
+                </TD>
+            </TR>
+            
+        
+            <TR style="background-color:#EAF0F8">
+                <TD style="height: 30px" colspan="10"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD colspan="9"><font color="#006e98">Step 4:</font> Description (additional free text describing the data. This step is optional)
+</TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD></TD>
+                <TD colspan="8">
+                    <input type = "textarea" name = "descNameTb" id = "descNameTbId" style="width: 100%;hborder: 1px solid black; font-family: Arial; font-size: 25px;" class="form-control input-lg"/>
+                </TD>
+                <TD colspan="1">
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD style="height: 30px" colspan="10"></TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD style="height: 30px" colspan="10">
+                    <center><input type="image" src="static/submitBut.png" alt="Submit Form" style="width:auto ; height:40;" /></center>
+                    <!--<input type="submit" alt="Submit Form" style="margin:0px; padding:5px; width:250px" value="Submit"/>-->
+                </TD>
+            </TR>
+            <TR style="background-color:#EAF0F8">
+                <TD style="height: 30px" colspan="10"></TD>
+            </TR>
+        </TBODY>
+    </TABLE>
+    <table style="width:90%;margin-right:5%;margin-left:5%;background-color:white">
+        <tr height="70px" style="background-color:white">
+            <td colspan="1"></td>
+        </tr>
+        <tr height="30px" style="background-color:white">
+            <td colspan="1" align="right"><font face="arial" size="5"><center><a href='main'><u>Back to main page</u></a></center></font></td>
+        </tr>
+        <tr height="70px" style="background-color:white">
+            <td colspan="1"></td>
+        </tr>
+    </table>
+    </center>
+</form>
+        
+<script>
+
+        var data = {
+            ontologies: {{ont_list|safe}},
+            synonym:     {{syn_list|safe}}
+        };
+
+        typeof $.typeahead === 'function' && $.typeahead({
+            input: ".js-typeahead",
+            minLength: 1,
+            order: "asc",
+            group: true,
+            maxItemPerGroup: 3,
+            groupOrder: function () {
+
+                var scope = this,
+                    sortGroup = [];
+
+                for (var i in this.result) {
+                    sortGroup.push({
+                        group: i,
+                        length: this.result[i].length
+                    });
+                }
+
+                sortGroup.sort(
+                    scope.helper.sort(
+                        ["length"],
+                        false, // false = desc, the most results on top
+                        function (a) {
+                            return a.toString().toUpperCase()
+                        }
+                    )
+                );
+
+                return $.map(sortGroup, function (val, i) {
+                    return val.group
+                });
+            },
+            hint: true,
+            //dropdownFilter: "All",
+            template: "{{display}}, <small><em>{{group}}</em></small>",
+            emptyTemplate: "no result for {{query}}",
+            source: {
+                ontology: {
+                    data: data.ontologies
+                },
+                synonym: {
+                    data: data.synonym
+                }
+            },
+            debug: true
+        });
+
+    </script>
+
+</div>    
+</font>
+</body>
+</html>
