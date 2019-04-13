@@ -33,7 +33,6 @@
         background-color: #f2f2f2;
       }
       th {
-        background-color: #006e98;
         background-color: {{ header_color|default('#006e98', true) }};
         color: white;
         margin-top: 100px;
@@ -52,11 +51,11 @@
     </script>
   </head>
   <body>
-  <table style="padding:0;width:100%;background-color:#006e98;margin-right:8px;margin-left:8px;">
-    <tr style="background-color:#006e98;height=2px">
+  <table style="padding:0;width:100%;background-color:#{{ header_color|default('#006e98', true) }};margin-right:8px;margin-left:8px;">
+    <tr style="background-color:{{ header_color|default('#006e98', true) }};height=2px">
     <td colspan="7"></td>
     </tr>
-    <tr style="background-color:#006e98;height:30px;height:10px">
+    <tr style="background-color:{{ header_color|default('#006e98', true) }};height:30px;height:10px">
         <td width="1%"></td>
         <td width="1%"><a class="navbar-brand" href="{{ url_for('.main_html') }}"><i class="glyphicon glyphicon-home" style="color:white"></i></a></td>
         <td width="4%"><img src='http://dbbact.org/static/dbBact_small.png' width="210"></td>
