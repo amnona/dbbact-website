@@ -9,7 +9,7 @@ import requests
 import matplotlib as mpl
 from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup
 
-from .utils import debug, get_fasta_seqs, get_dbbact_server_address
+from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
 from .term_pairs import get_enriched_term_pairs, get_enrichment_score
 from . import enrichment
 
@@ -38,9 +38,8 @@ def main_html():
     Method: GET
     """
     # get the dbbact statistics from the dbbact rest-api server
-    debug(4,'calling %s' % dbbact_server_address)
+    debug(2, 'getting stats from %s' % dbbact_server_address)
     httpRes = requests.get(dbbact_server_address + '/stats/stats')
-    debug(4,'pita')
     # NumOntologyTerms = 0
     NumAnnotation = 0
     NumSequences = 0
@@ -55,6 +54,7 @@ def main_html():
         NumExperiments = jsonRes.get("stats").get('NumExperiments')
 
     webPage = render_template('searchpage.html',
+                              header_color=get_dbbact_server_color(),
                               numAnnot=(str(NumAnnotation).replace('.0', '')),
                               numSeq=(str(NumSequences).replace('.0', '')),
                               numExp=(str(NumExperiments).replace('.0', '')),

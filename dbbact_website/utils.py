@@ -158,7 +158,7 @@ def get_dbbact_server_address():
         elif cenv == 'test':
             cport = 5002
         else:
-            debug('server type %s not recognized (should be main/develop/test. ignoring' % cenv)
+            debug(2, 'server type %s not recognized (should be main/develop/test. ignoring' % cenv)
 
     # now override with host/port
     if 'DBBACT_SERVER_HOST' in os.environ:
@@ -171,3 +171,20 @@ def get_dbbact_server_address():
     server_address = 'http://%s:%s' % (caddress, cport)
     debug(2, 'using final dbbact api sever address %s' % server_address)
     return server_address
+
+
+def get_dbbact_server_color():
+    '''Return the color for the html header
+    returns '#aa000' if development, False if production, '#00aa00' if other, '#aaaa00' if not set
+    '''
+    if 'DBBACT_WEBSITE_TYPE' not in os.environ:
+        debug(9,'color not set')
+        return '#aaaa00'
+    if os.environ['DBBACT_WEBSITE_TYPE'] == 'main':
+        debug(9,'color main')
+        return False
+    if os.environ['DBBACT_WEBSITE_TYPE'] == 'develop':
+        debug(9,'color develop')
+        return '#aa0000'
+    debug(9,'color other')
+    return '#00aa00'
