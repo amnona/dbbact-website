@@ -173,18 +173,29 @@ def get_dbbact_server_address():
     return server_address
 
 
-def get_dbbact_server_color():
+def get_dbbact_server_color(api_server_type=None):
     '''Return the color for the html header
-    returns '#aa000' if development, False if production, '#00aa00' if other, '#aaaa00' if not set
+
+    Parameters
+    ----------
+    api_server_type: str or None, optional
+        if not None, compare to web server type and show red color if don't match
+
+    Returns
+    -------
+    False if production (so keeps css color), '#00aa00' if development,  '#00aaaa' if other, '#aaaa00' if not set, '#aa0000' if mismatch with api_server
     '''
     if 'DBBACT_WEBSITE_TYPE' not in os.environ:
-        debug(9,'color not set')
         return '#aaaa00'
-    if os.environ['DBBACT_WEBSITE_TYPE'] == 'main':
-        debug(9,'color main')
+    ctype = os.environ['DBBACT_WEBSITE_TYPE']
+    if ctype == 'main':
+        if api_server_type is not None:
+            if api_server_type != 'dbbact':
+                return '#aa0000'
         return False
-    if os.environ['DBBACT_WEBSITE_TYPE'] == 'develop':
-        debug(9,'color develop')
-        return '#aa0000'
-    debug(9,'color other')
-    return '#00aa00'
+    if ctype == 'develop':
+        if api_server_type != 'dbbact_develop':
+            return '#aa0000'
+        return '#00aa00'
+    debug(2, 'DBBACT_WEBSITE_TYPE is %s' % ctype)
+    return '#00aaaa'

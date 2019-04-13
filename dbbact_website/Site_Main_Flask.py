@@ -52,9 +52,10 @@ def main_html():
         NumSequences = jsonRes.get("stats").get('NumSequences')
         NumSequenceAnnotation = jsonRes.get("stats").get('NumSeqAnnotations')
         NumExperiments = jsonRes.get("stats").get('NumExperiments')
+        dbbact_api_server_type = jsonRes.get("stats").get("Database")
 
     webPage = render_template('searchpage.html',
-                              header_color=get_dbbact_server_color(),
+                              header_color=get_dbbact_server_color(api_server_type=dbbact_api_server_type),
                               numAnnot=(str(NumAnnotation).replace('.0', '')),
                               numSeq=(str(NumSequences).replace('.0', '')),
                               numExp=(str(NumExperiments).replace('.0', '')),
