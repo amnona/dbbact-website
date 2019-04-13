@@ -194,8 +194,9 @@ def get_dbbact_server_color(api_server_type=None):
                 return '#aa0000'
         return False
     if ctype == 'develop':
-        if api_server_type != 'dbbact_develop':
-            return '#aa0000'
+        if api_server_type is not None:
+            if api_server_type != 'dbbact_develop':
+                return '#aa0000'
         return '#00aa00'
     debug(2, 'DBBACT_WEBSITE_TYPE is %s' % ctype)
     return '#00aaaa'
