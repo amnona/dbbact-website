@@ -132,8 +132,8 @@ def get_fasta_seqs(file):
 
 def get_dbbact_server_address():
     '''
-    Get the database address based on the environment variable DBBACT_WEBSITE_TYPE
-    (use export DBBACT_WEBSITE_TYPE="local" / "main"(default) / "develop" / "test")
+    Get the rest-api server address based on the environment variable DBBACT_WEBSITE_TYPE
+    (use export DBBACT_WEBSITE_TYPE="main" / "develop" / "test")
 
     Parameters
     ----------
