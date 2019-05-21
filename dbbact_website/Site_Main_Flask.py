@@ -17,7 +17,7 @@ from . import enrichment
 Site_Main_Flask_Obj = Blueprint('Site_Main_Flask_Obj', __name__, template_folder='templates')
 
 
-# the
+# the dbbact rest-api server address
 dbbact_server_address = get_dbbact_server_address()
 
 
@@ -423,17 +423,17 @@ def search_results():
 
     # if it is short, try if it is a greengenesID/ontology term/taxonomy
     if len(sequence) < 50:
-        # if number assume it is a greengenes id
-        if sequence.isdigit():
-            # try gg first
-            err, webPage = get_gg_info(sequence)
-            if not err:
-                debug(2, 'get info for greengenes id %s' % sequence)
-                return webPage
+        # # if number assume it is a greengenes id
+        # if sequence.isdigit():
+        #     # try gg first
+        #     err, webPage = get_gg_info(sequence)
+        #     if not err:
+        #         debug(2, 'get info for greengenes id %s' % sequence)
+        #         return webPage
 
-            debug(2, 'get info for greengenesid %s' % sequence)
-            webPage = sequence_annotations(sequence)
-            return webPage
+        #     debug(2, 'get info for greengenesid %s' % sequence)
+        #     webPage = sequence_annotations(sequence)
+        #     return webPage
 
         # try is it an ontology term
         err, webPage = get_ontology_info(sequence)
@@ -498,7 +498,7 @@ def sequence_annotations(sequence):
     Parameters
     ----------
     sequence: str
-        the sequences to look for (ACGT string or greengenesID from rep. set 97%)
+        the sequences to look for (ACGT string)
     '''
     rdata = {}
     rdata['sequence'] = sequence
@@ -518,23 +518,31 @@ def sequence_annotations(sequence):
 
     if httpRes.status_code != requests.codes.ok:
         debug(6, "sequence annotations Error code:" + str(httpRes.status_code))
+        webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact sequence annotation')
         webPage += "Failed to get annotations for sequence:\n%s" % sequence
+        webPage += render_template('footer.html')
     else:
         annotations = httpRes.json().get('annotations')
-        if len(annotations) == 0:
-            webPage += '<br><br><h1>No annotations for sequence found in dbBact</h1>'
-            webPage += '<h2>Are you using >100bp sequences?</h2>'
-            webPage += 'Note dbBact is populated mostly with V4 (EMP 515F primer) based sequences<br>'
-            webPage += 'so no results could mean you are not using a EMP-V4 derived sequence<br>'
-            webPage += 'These sequences usually begin with a "TACG"'
-        else:
-            for cannotation in annotations:
-                cannotation['website_sequences'] = [0]
-            annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=False)
-            term_info = get_term_info_for_annotations(annotations)
-            webPage += draw_annotation_details(annotations, term_info, show_relative_freqs=True)
+        webPage += render_sequence_annotations(annotations)
+        webPage += render_template('footer.html')
+    return webPage
 
-    webPage += render_template('footer.html')
+
+def render_sequence_annotations(annotations):
+    '''Draw the webpage summarizing the annotations and taxonomy of a given sequence
+    '''
+    webPage = ''
+    if len(annotations) == 0:
+        webPage += '<br><br><h1>No annotations for sequence found in dbBact</h1>'
+        webPage += '<h2>Are you using >100bp sequences?</h2>'
+        webPage += 'Note dbBact can identify V12 / V34 / V4 sequences (without the primers), or SILVA ids<br>'
+    else:
+        for cannotation in annotations:
+            cannotation['website_sequences'] = [0]
+        annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=False)
+        term_info = get_term_info_for_annotations(annotations)
+        webPage += draw_annotation_details(annotations, term_info, show_relative_freqs=True)
+
     return webPage
 
 
@@ -1048,58 +1056,6 @@ def get_hash_info(hash_str):
     webPage += render_template('footer.html')
     return '', webPage
 
-def get_gg_info(ggid_str):
-    '''
-    get the information about a sequence based on its gg id 
-
-    Parameters
-    ----------
-    hash_str : string
-        sequence represented by its gg id
-
-    Returns
-    -------
-    err : str
-        empty ('') if found, none empty if error encountered
-    webPage : str
-        the html of the resulting table
-    '''
-    # get the hash annotations
-    res = requests.get(get_dbbact_server_address() + '/sequences/get_gg_annotations', json={'gg_id': ggid_str})
-    if res.status_code != 200:
-        msg = 'error getting hash annotations for %s: %s' % (ggid_str, res.content)
-        debug(6, msg)
-        return msg, msg
-    seq_strs = res.json()['seqstr']
-    gg_seqs = res.json()['seqids']
-    annotations_counts = res.json()['annotations']
-    if len(annotations_counts) == 0:
-        msg = 'no annotations found for gg id %s' % ggid_str
-        debug(1, msg)
-        return msg, msg
-
-    # convert to list of annotations with counts as a key/value
-    annotations = []
-    for cann in annotations_counts:
-        cannotation = cann[0]
-        cannotation['website_sequences'] = [-1] * cann[1]
-        annotations.append(cannotation)
-
-    annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=False)
-    annotations = sorted(annotations, key=lambda x: len(x.get('website_sequences', [])), reverse=True)
-
-    seq_web = ''
-    for seq in seq_strs:
-        if len(seq_web) > 0:
-            seq_web += '<br>'
-        seq_web += seq.upper()
-
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact ontology')
-    webPage += render_template('gginfo.html', gg_place_holder=ggid_str, seq_names_place_holder=seq_web)
-    webPage += draw_annotation_details(annotations)
-    webPage += render_template('footer.html')
-    return '', webPage
-
 
 def get_silva_info(silva_str):
     '''
@@ -1108,7 +1064,7 @@ def get_silva_info(silva_str):
     Parameters
     ----------
     silva_str : str
-        sequence represented by its silva id (should be XXXX.N.NNN or XXXX.%)
+        sequence represented by its silva id (should be XXXX.N.NNN or XXXX)
 
     Returns
     -------
@@ -1117,44 +1073,55 @@ def get_silva_info(silva_str):
     webPage : str
         the html of the resulting table
     '''
-    # get the hash annotations
-    res = requests.get(get_dbbact_server_address() + '/sequences/get_silva_annotations', json={'silva_id': silva_str})
+    # trim the .XXX.YYY part from the silva id if present
+    parts = silva_str.split('.')
+    if len(parts) > 1:
+        silva_str = '.'.join(parts[:-2])
+
+    # get the annotations
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_annotations', json={'sequence': silva_str, 'dbname': 'silva'})
     if res.status_code != 200:
-        msg = 'error getting hash annotations for %s: %s' % (silva_str, res.content)
+        msg = 'error getting silva annotations for %s: %s' % (silva_str, res.content)
         debug(6, msg)
         return msg, msg
-    silva_seq_strs = res.json()['seqstr']
-    silva_seq_ids = res.json()['seqids']
-    annotations_counts = res.json()['annotations']
-    if len(annotations_counts) == 0:
+
+    print(res.json())
+    annotations = res.json().get('annotations')
+
+    if len(annotations) == 0:
+        webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact ontology')
+        webPage += 'No annotations found for silva sequence %s' % silva_str
+        webPage += render_template('footer.html')
+        return 'no annotations found', webPage
+
+    # get the matching dbbact sequences for the silva id
+    res = requests.get(get_dbbact_server_address() + '/sequences/getid', json={'sequence': silva_str, 'dbname': 'silva'})
+    print(res.json())
+    ids = res.json().get('seqId')
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_info', json={'seqids': ids})
+    print(res.json())
+
+    silva_seq_strs = [x['seq'] for x in res.json()['sequences']]
+    silva_seq_tax = [x['taxonomy'] for x in res.json()['sequences']]
+    silva_seq_ids = ids
+    if len(annotations) == 0:
         msg = 'no annotations found for silva id %s' % silva_str
         debug(1, msg)
         return msg, msg
-    # convert to list of annotations with counts as a key/value
-    annotations = []
-    for cann in annotations_counts:
-        cannotation = cann[0]
-        cannotation['website_sequences'] = [-1] * cann[1]
-        annotations.append(cannotation)
-
-    annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=False)
-    annotations = sorted(annotations, key=lambda x: len(x.get('website_sequences', [])), reverse=True)
 
     seq_web = ''
     total_num_seqs = len(silva_seq_strs)
-    for seq in silva_seq_strs:
+    for idx, seq in enumerate(silva_seq_strs):
         if len(seq_web) > 0:
             seq_web += '\n'
         seq_web += seq.upper()
-        # let's try to add taxonomy to the sequence
-        taxres = requests.get(get_dbbact_server_address() + '/sequences/get_taxonomy_str', json={'sequence': seq})
-        if taxres.status_code == 200:
-            seq_web += '\n'
-            seq_web += '(' + taxres.json()['taxonomy'].lower() + ')\n'
+        seq_web += '\n'
+        seq_web += '(' + silva_seq_tax[idx].lower() + ')\n'
 
     webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact ontology')
     webPage += render_template('silvainfo.html', silva_place_holder=silva_str, seq_names_place_holder=seq_web, number_seqs_place_holder=total_num_seqs)
-    webPage += draw_annotation_details(annotations)
+    webPage += render_sequence_annotations(annotations)
+    # webPage += draw_annotation_details(annotations)
     webPage += render_template('footer.html')
     return '', webPage
 
