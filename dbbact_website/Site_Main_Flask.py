@@ -744,9 +744,11 @@ def annotation_info(annotationid):
     webPage += render_template('annotdetail.html')
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('description', annotation['description'])
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('type', annotation['annotationtype'])
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('num_sequences', annotation['num_sequences'])
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('region', annotation['primer'])
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('flags', len(annotation['flags']))
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('agent', annotation['agent'])
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('method', annotation['method'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('num_sequences', annotation['num_sequences'])
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('date', annotation['date'])
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('username', annotation['username'])
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('private', annotation['private'])
@@ -758,6 +760,11 @@ def annotation_info(annotationid):
         webPage += '<td><a href=' + urllib.parse.quote('../ontology_info/' + str(cad[1])) + '>' + str(cad[1]) + '</a></td></tr>'
 
     webPage += '</table>'
+
+    if len(annotation['flags']) > 0:
+        webPage += list_flags(annotation['flags'])
+
+    webPage += draw_flag_annotation_button(annotationid)
 
     webPage += '<h2>Sequences</h2>'
     webPage += draw_download_fasta_button(annotationid)
@@ -781,6 +788,77 @@ def annotation_info(annotationid):
     webPage += '</blockquote></div>'
     webPage += render_template('footer.html')
     return webPage
+
+
+def list_flags(flags):
+    '''return an html table with the flags
+
+    Parameters
+    ----------
+    flags: list of dict returned to the 'flags' field of an annotation
+
+    Returns
+    -------
+    html table with list of flags
+    '''
+    webPage = render_template('flag_info.html')
+    for cflag in flags:
+        webPage += '<tr>'
+        webPage += '<td>%s</td>' % cflag['reason']
+        webPage += '<td>%s</td>' % cflag['status']
+        webPage += '<td>%s</td>' % cflag['userid']
+        webPage += '</tr>'
+    webPage += '</table>'
+    return webPage
+
+
+def draw_flag_annotation_button(annotationid):
+    '''Draw a button to flag the annotation as suspicious
+
+    Parameters
+    ----------
+    annotationid : int
+        the annotationid to flag
+
+    Returns
+    -------
+    webPage : str
+        html for the download button with the link to the fasta file download page
+    '''
+    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon glyphicon-thumbs-down"></i> Flag as suspicious</button></div>' % url_for('.annotation_flag', annotationid=annotationid)
+    return webPage
+
+
+@Site_Main_Flask_Obj.route('/annotation_flag/<int:annotationid>')
+def annotation_flag(annotationid):
+    '''webpage used to request input from the user to flag an annotation'''
+    webpage = render_template('header.html', header_color=get_dbbact_server_color())
+    webpage += render_template('annotation_flag.html', annotationid=annotationid)
+    webpage += render_template('footer.html', header_color=get_dbbact_server_color())
+    return webpage
+
+
+@Site_Main_Flask_Obj.route('/annotation_flag_submit', methods=['POST', 'GET'])
+def annotation_flag_submit():
+    """
+    result of the annotation_flag form. Will flag the annotation as anonimous user
+    """
+    reason = request.form['reason']
+    annotationid = request.form['annotationid']
+
+    data = {}
+    data['annotationid'] = annotationid
+    data['reason'] = reason
+    httpRes = requests.post(dbbact_server_address + '/annotations/add_annotation_flag', json=data)
+    if httpRes.status_code == 200:
+        webpage = render_template('header.html', header_color=get_dbbact_server_color(), title='Password Recovery')
+        webpage += 'Annotation %s has been flagged and will be reviewed by the dbbact team<br>' % annotationid
+        webpage += 'Thank you for your input'
+    else:
+        webpage = render_template('done_fail.html', mes='Failed to flag annotation', error=httpRes.text)
+
+    webpage += render_template('footer.html', header_color=get_dbbact_server_color())
+    return webpage
 
 
 def draw_download_fasta_button(annotationid):
@@ -1471,6 +1549,16 @@ def draw_annotation_table(annotations, include_ratio=True):
         # add the annotation date
         wpart += '<td>%s</td>' % dataRow['date']
 
+        # add the annotation region
+        wpart += '<td>%s</td>' % dataRow['primer']
+
+        # add the number of flags
+        if len(dataRow['flags']) > 0:
+            flags = '%s' % len(dataRow['flags'])
+        else:
+            flags = 'No'
+        wpart += '<td>%s</td>' % flags
+
         # add the sequences
         annotationid = dataRow.get('annotationid', -1)
         num_sequences = dataRow.get('num_sequences', '?')
@@ -1692,7 +1780,7 @@ def reset_password():
     Method: POST
     """
     webpage = render_template('header.html', header_color=get_dbbact_server_color(), title='Reset Password')
-    webpage += render_template('reset_password.html') 
+    webpage += render_template('reset_password.html')
     return webpage
 
 
@@ -1711,33 +1799,35 @@ def about():
 """
 Auto complete tests
 """
-@Site_Main_Flask_Obj.route('/add_data', methods=['POST', 'GET'])
+@Site_Main_Flask_Obj.route('/add_annotation', methods=['POST', 'GET'])
 def add_data():
     """
-    Title: About us
+    Title: Add a new annotation to dbBact. ALPHA!!!
     URL: /about
     Method: POST
     """
-    
-    res = requests.get(get_dbbact_server_address() + '/ontology/get_all_descriptions')
+
+    # res = requests.get(get_dbbact_server_address() + '/ontology/get_all_descriptions')
+    res = requests.get(get_dbbact_server_address() + '/ontology/get_all_terms')
     if res.status_code != 200:
-           debug(6, 'failed to get list of ontologies')
-           parents = []
+        debug(6, 'failed to get list of ontologies')
+        list_of_ont = {}
     else:
-           import json
-           list_of_ont = json.dumps(res.json())
-    
+        import json
+        list_of_ont = json.dumps(res.json())
+
     res = requests.get(get_dbbact_server_address() + '/ontology/get_all_synonyms')
     if res.status_code != 200:
-           debug(6, 'failed to get list of synonyms')
-           parents = []
+        debug(6, 'failed to get list of synonyms')
+        list_of_synonym = {}
     else:
-           import json
-           list_of_synonym = json.dumps(res.json())
-    
+        import json
+        list_of_synonym = json.dumps(res.json())
+
     webpage = render_template('header.html', header_color=get_dbbact_server_color())
-    webpage += render_template('add_data.html',syn_list=list_of_synonym,ont_list=list_of_ont,display='{{display}}',group='{{group}}',query='{{query}}')
+    webpage += render_template('add_data.html', syn_list=list_of_synonym, ont_list=list_of_ont, display='{{display}}', group='{{group}}', query='{{query}}')
     return webpage
+
 
 """
 Auto complete tests
@@ -1750,7 +1840,8 @@ def add_data2():
     Method: POST
     """
     
-    res = requests.get(get_dbbact_server_address() + '/ontology/get_all_descriptions')
+    res = requests.get(get_dbbact_server_address() + '/ontology/get_all_terms')
+    # res = requests.get(get_dbbact_server_address() + '/ontology/get_all_descriptions')
     if res.status_code != 200:
            debug(6, 'failed to get list of ontologies')
            parents = []

@@ -1,0 +1,42 @@
+<font face="arial" color="black" size="4">
+    <table style="width:100%;margin-right:8px;margin-left:8px;">
+    <!-- <form style='margin-top: 20px;' action='annotation_flag_submit' method='post'> -->
+    <form style='margin-top: 20px;' action={{ url_for('.annotation_flag_submit') }} method='post'>
+    <tr height="20" style="background-color:white"><td></td></tr>
+    <tr height="5" style="background-color:white"><td><b><font face="arial" color="black" size="5">Flag annotation as suspicious</font></b></td></tr>
+    <tr height="20" style="background-color:white">
+        <td colspan="1"></td>
+    </tr>
+    <tr height="10" style="background-color:white">
+        <td colspan="1"><font face="arial" size="4">
+            NOTE: this webpage will flag the annotation {{annotationid|safe}} as suspicious. This flag will be shown other dbBact users querying this annotation, and may affect their downstream analysis. <br>
+            Please only flag an annotation if you have a solid reason to suspect it's validity. Possible reasons may include:<br>
+            * Incorrect terms used in the annotation<br>
+            * Sequences in the annotations do not seem to belong to it
+</font></td>
+    </tr>
+    <tr height="5" style="background-color:white">
+        <td colspan="1"><font face="arial" size="4">Reason for flagging the annotation:<br>
+        (Please be as specific as possible)</font></td>
+    </tr>
+    <tr height="5" style="background-color:white">
+        <td colspan="1"><font face="arial" size="4">
+            <!-- <input value='' style='width: 80%; font-size:17px; height: 105px; margin-bottom: 20px; margin-top: 20px;' type='text' name='reason'></font> -->
+            <textarea name="reason" cols="80" rows="5"></textarea>
+        </td>
+    </tr>
+    <input type='hidden' name='annotationid' value={{annotationid|safe}}>
+    <tr height="5" style="background-color:white">
+        <td colspan="1"><font face="arial" size="4"><input style='height: 40px; width: 140px; font-size:20px;' type='submit' value='Submit'></font></td>
+    </tr>
+    <tr height="30" style="background-color:white">
+        <td colspan="1"></td>
+    </tr>    
+    <tr height="30" style="background-color:white">
+        <td colspan="1"><font face="arial" size="5"><a href='main'><u>Back to main page</u></a></font></td>
+    </tr>
+    </form>
+    </table>
+</font>
+</body>    
+</html>
