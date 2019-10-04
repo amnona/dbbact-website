@@ -899,7 +899,7 @@ def get_ontology_info(term):
         the ontology term to look for
     """
     # get the experiment annotations
-    res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term})
+    res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term, 'get_children': 'true'})
     if res.status_code != 200:
         msg = 'error getting annotations for ontology term %s: %s' % (term, res.content)
         debug(6, msg)
