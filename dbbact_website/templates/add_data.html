@@ -372,7 +372,7 @@
             else if( isALb.selectedIndex == 1 )
                 typeVal = "common";
             else if( isALb.selectedIndex == 2 )
-                typeVal = "highfreq";
+                typeVal = "dominant";
             else if( isALb.selectedIndex == 3 )
                 typeVal = "other";
             
@@ -391,7 +391,7 @@
         }
         
         
-        //if diff presence, add 'all' , 'high' or low
+        //if diff presence, add 'all' , 'high' or 'low'
         if (diffRb.checked)
         {
             if(allRb.checked)
@@ -594,7 +594,7 @@
                 </TD>
                 <TD colspan="7">
                     <select id="isAList" style="width: 320px" >
-                        <option value="contaminant">contaminant</option>
+                        <option value="contamination">contamination</option>
                         <option value="common">common (>50% of samples)</option>
                         <option value="high">high freq (>1% of reads)</option>
                         <option value="other">other</option>

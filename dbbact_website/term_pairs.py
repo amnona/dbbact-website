@@ -296,7 +296,7 @@ def get_precision(annotations, seqannotations, method='total-annotation', ignore
 
 def get_annotation_type_score(annotation):
 	'''Get the score factor associated with an annotation type.
-	Score is based on the annotation type (i.e. "common/highfreq/diffexp/contamination/other")
+	Score is based on the annotation type (i.e. "common/dominant/diffexp/contam/other/positive correlation/negative correlation")
 
 	Parameters
 	----------
@@ -310,13 +310,17 @@ def get_annotation_type_score(annotation):
 	'''
 	score = 1
 	anntationtype = annotation['anntationtype']
-	if anntationtype == 'highfreq':
+	if anntationtype == 'dominant':
 		score = 2
 	elif anntationtype == 'common':
 		score = 1
 	elif anntationtype == 'other':
 		score = 1
 	elif anntationtype == 'diffexp':
+		score = 1
+	elif anntationtype == 'positive correlation':
+		score = 1
+	elif anntationtype == 'negative correlation':
 		score = 1
 	elif anntationtype == 'contamination':
 		score = 1

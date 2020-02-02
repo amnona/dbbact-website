@@ -182,7 +182,7 @@ def get_annotation_term_counts(annotations):
             for cdesc in cannotation['details']:
                 term_count[cdesc[1]] += 1
             continue
-        if cannotation['annotationtype'] == 'highfreq':
+        if cannotation['annotationtype'] == 'dominant':
             for cdesc in cannotation['details']:
                 term_count[cdesc[1]] += 2
             continue
@@ -193,7 +193,7 @@ def get_annotation_term_counts(annotations):
         if cannotation['annotationtype'] == 'contamination':
             term_count['contamination'] += 1
             continue
-        if cannotation['annotationtype'] == 'diffexp':
+        if cannotation['annotationtype'] in ['diffexp', 'positive correlation', 'negative correlation']:
             for cdesc in cannotation['details']:
                 if cdesc[0] == 'all':
                     term_count[cdesc[1]] += 1
