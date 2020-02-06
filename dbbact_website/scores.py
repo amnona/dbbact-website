@@ -49,13 +49,17 @@ def get_annotation_term_counts(annotations, exp_annotations=None, score_method='
 		annotation_type = cannotation['annotationtype']
 		if annotation_type == 'common':
 			cscore = 1
-		elif annotation_type == 'highfreq':
+		elif annotation_type == 'positive association':
+			cscore = None
+		elif annotation_type == 'negative association':
+			cscore = None
+		elif annotation_type == 'dominant':
 			cscore = 1
 		elif annotation_type == 'other':
 			cscore = 0.5
 		elif annotation_type == 'contamination':
 			cscore = 1
-			details = [('all','contamination')]
+			details = [('all', 'contamination')]
 		elif annotation_type == 'other':
 			cscore = 0
 		elif annotation_type == 'diffexp':
@@ -188,7 +192,7 @@ def draw_wordcloud(annotations, term_info=None, show_relative_freqs=False):
 				orig_term = cdetail[1]
 				if 'website_sequences' in cannotation:
 					# if it's high freq. it's worth more
-					if cannotation['annotationtype'] == 'highfreq':
+					if cannotation['annotationtype'] == 'dominant':
 						factor = 2
 					else:
 						factor = 1
