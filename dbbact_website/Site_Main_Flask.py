@@ -39,22 +39,27 @@ def main_html():
     """
     # get the dbbact statistics from the dbbact rest-api server
     debug(2, 'getting stats from %s' % dbbact_server_address)
-    httpRes = requests.get(dbbact_server_address + '/stats/stats')
-    # NumOntologyTerms = 0
     NumAnnotation = 0
     NumSequences = 0
     NumSequenceAnnotation = 0
     NumExperiments = 0
-    if httpRes.status_code == 200:
-        jsonRes = httpRes.json()
-        # NumOntologyTerms = jsonRes.get("stats").get('NumOntologyTerms')
-        NumAnnotation = jsonRes.get("stats").get('NumAnnotations')
-        NumSequences = jsonRes.get("stats").get('NumSequences')
-        NumSequenceAnnotation = jsonRes.get("stats").get('NumSeqAnnotations')
-        NumExperiments = jsonRes.get("stats").get('NumExperiments')
-        dbbact_api_server_type = jsonRes.get("stats").get("Database")
+    dbbact_api_server_type = 'unknown'
+    try:
+        httpRes = requests.get(dbbact_server_address + '/stats/stats')
+        if httpRes.status_code == 200:
+            jsonRes = httpRes.json()
+            # NumOntologyTerms = jsonRes.get("stats").get('NumOntologyTerms')
+            NumAnnotation = jsonRes.get("stats").get('NumAnnotations')
+            NumSequences = jsonRes.get("stats").get('NumSequences')
+            NumSequenceAnnotation = jsonRes.get("stats").get('NumSeqAnnotations')
+            NumExperiments = jsonRes.get("stats").get('NumExperiments')
+            dbbact_api_server_type = jsonRes.get("stats").get("Database")
+    except:
+        pass
+    # NumOntologyTerms = 0
 
     webPage = render_template('searchpage.html',
+                              alert_text=get_alert_text(),
                               header_color=get_dbbact_server_color(api_server_type=dbbact_api_server_type),
                               numAnnot=(str(NumAnnotation).replace('.0', '')),
                               numSeq=(str(NumSequences).replace('.0', '')),
@@ -122,7 +127,7 @@ def build_res_html(success, expId, isNewExp, annotId, additional=None):
     if additional is not None:
         debugStr = "Error information : " + additional
 
-    webStr = render_template('header.html', title='Error', header_color=get_dbbact_server_color()) + render_template('add_data_results.html', title_str=successStr, new_or_existing_str=existingStr, annotation_id=annotIdStr, exp_id=expIdStr, debug_info=debugStr)
+    webStr = render_header(title='Error') + render_template('add_data_results.html', title_str=successStr, new_or_existing_str=existingStr, annotation_id=annotIdStr, exp_id=expIdStr, debug_info=debugStr)
     return webStr
 
 
@@ -330,10 +335,10 @@ def enrichment_results():
             textfile1 = TextIOWrapper(file1)
             seqs1 = get_fasta_seqs(textfile1)
             if seqs1 is None:
-                webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
+                webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
                 return(webPageTemp, 400)
         else:
-            webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Error: Missing fasta file name 1')
+            webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Missing fasta file name 1')
             return(webPageTemp, 400)
     else:
         # only used for example query
@@ -341,7 +346,7 @@ def enrichment_results():
             textfile1 = myfile.readlines()
             seqs1 = get_fasta_seqs(textfile1)
             if seqs1 is None:
-                webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
+                webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
                 return(webPageTemp, 400)
 
     # second file
@@ -352,27 +357,27 @@ def enrichment_results():
             textfile2 = TextIOWrapper(file2)
             seqs2 = get_fasta_seqs(textfile2)
             if seqs2 is None:
-                webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Error: Uploaded file2 not recognized as fasta')
+                webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file2 not recognized as fasta')
                 return(webPageTemp, 400)
         else:
-            webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Error: Missing fasta file name')
+            webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Missing fasta file name')
     else:
         # only used for example query
         with open("dbbact_website/enrichment_example/seqs-sal.fa", "r") as myfile:
             textfile2 = myfile.readlines()
             seqs2 = get_fasta_seqs(textfile2)
             if seqs2 is None:
-                webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
+                webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
                 return(webPageTemp, 400)
 
-    webpage = render_template('header.html', header_color=get_dbbact_server_color())
+    webpage = render_header()
     # webpage = render_template('info_header.html')
     for term_type in ['term', 'annotation']:
         webpage += "<h2>%s enrichment</h2>" % term_type
         webpage += render_template('enrichment_results.html')
         err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type)
         if err:
-            webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str=err)
+            webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str=err)
             return(webPageTemp, 400)
         for idx, cterm in enumerate(terms):
             if odif[idx] < 0:
@@ -415,7 +420,7 @@ def search_results():
             os.remove(filepos)
             # if no sequences in fasta file - return error message
             if seqs is None:
-                webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Error: Uploaded file not recognized as fasta')
+                webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file not recognized as fasta')
                 return(webPageTemp, 400)
             # return the webpage for the group annotations
             err, webpage = draw_sequences_annotations_compact(seqs)
@@ -463,7 +468,7 @@ def search_results():
     # 50 < length < 100 - it's a sequence but not long enough
     if len(sequence) < 100:
         debug(2, 'sequence too short len=%d' % len(sequence))
-        webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Sequences must be at least 100bp long.')
+        webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Sequences must be at least 100bp long.')
         return(webPageTemp, 400)
 
     # so it's a legit sequence - let's get the annotations for it
@@ -513,12 +518,12 @@ def sequence_annotations(sequence):
     httpRes = requests.get(dbbact_server_address + '/sequences/get_annotations', json=rdata)
 
     # Create the results page
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact sequence annotation')
+    webPage = render_header(title='dbBact sequence annotation')
     webPage += render_template('seqinfo.html', sequence=sequence.upper(), taxonomy=taxStr)
 
     if httpRes.status_code != requests.codes.ok:
         debug(6, "sequence annotations Error code:" + str(httpRes.status_code))
-        webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact sequence annotation')
+        webPage = render_header(title='dbBact sequence annotation')
         webPage += "Failed to get annotations for sequence:\n%s" % sequence
         webPage += render_template('footer.html')
     else:
@@ -602,7 +607,7 @@ def draw_sequences_annotations(seqs):
         for cannotation in cseqannotation:
             annotations.append(cannotation)
 
-    webPage = render_template('header.html', header_color=get_dbbact_server_color())
+    webPage = render_header()
     webPage += '<h2>Annotations for sequence list:</h2>'
     webPage += draw_annotation_details(annotations)
     webPage += render_template('footer.html')
@@ -642,7 +647,7 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[]):
         return msg, msg
     term_info = res['term_info']
 
-    webPage = render_template('header.html', header_color=get_dbbact_server_color())
+    webPage = render_header()
     webPage += '<h2>Annotations for %d sequences</h2>' % len(seqs)
     webPage += draw_group_annotation_details(annotations, seqannotations, term_info=term_info, ignore_exp=ignore_exp, sequences=seqs)
     webPage += render_template('footer.html')
@@ -719,7 +724,7 @@ def annotation_info(annotationid):
     res = requests.get(get_dbbact_server_address() + '/annotations/get_annotation', params=rdata)
     if res.status_code != 200:
         message = Markup('Annotation ID <b>%d</b> was not found.' % annotationid)
-        webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='Not found')
+        webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Not found')
         return(webPageTemp, 400)
 
     annotation = res.json()
@@ -727,14 +732,14 @@ def annotation_info(annotationid):
     rdata = {}
     expid = annotation['expid']
     rdata['expId'] = expid
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='Annotation %s' % annotationid)
+    webPage = render_header(title='Annotation %s' % annotationid)
     webPage += render_template('annotinfo.html', annotationid=annotationid)
     res = requests.get(dbbact_server_address + '/experiments/get_details', json=rdata)
     if res.status_code == 200:
         webPage += draw_experiment_info(expid, res.json()['details'])
     else:
         message = Markup('Error getting experiment details.')
-        return(render_template('header.html', header_color=get_dbbact_server_color(), title='Not found') +
+        return(render_header(title='Not found') +
                render_template('error.html', title='Not found',
                                message=message) +
                render_template('footer.html'), 400)
@@ -832,7 +837,7 @@ def draw_flag_annotation_button(annotationid):
 @Site_Main_Flask_Obj.route('/annotation_flag/<int:annotationid>')
 def annotation_flag(annotationid):
     '''webpage used to request input from the user to flag an annotation'''
-    webpage = render_template('header.html', header_color=get_dbbact_server_color())
+    webpage = render_header()
     webpage += render_template('annotation_flag.html', annotationid=annotationid)
     webpage += render_template('footer.html', header_color=get_dbbact_server_color())
     return webpage
@@ -851,7 +856,7 @@ def annotation_flag_submit():
     data['reason'] = reason
     httpRes = requests.post(dbbact_server_address + '/annotations/add_annotation_flag', json=data)
     if httpRes.status_code == 200:
-        webpage = render_template('header.html', header_color=get_dbbact_server_color(), title='Password Recovery')
+        webpage = render_header(title='Password Recovery')
         webpage += 'Annotation %s has been flagged and will be reviewed by the dbbact team<br>' % annotationid
         webpage += 'Thank you for your input'
     else:
@@ -912,7 +917,7 @@ def get_ontology_info(term):
     for cannotation in annotations:
         cannotation['website_sequences'] = [0]
 
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact taxonomy')
+    webPage = render_header(title='dbBact taxonomy')
     webPage += '<h1>Summary for ontology term: %s</h1>\n' % term
     webPage += 'Number of annotations with term: %d' % len(annotations)
     webPage += '<h2>Annotations:</h2>'
@@ -929,7 +934,7 @@ def annotations_list():
         msg = 'error getting annotations list: %s' % res.content
         debug(6, msg)
         return msg, msg
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact annotation list')
+    webPage = render_header(title='dbBact annotation list')
     webPage += '<h2>dbBact Annotation List</h2>'
     annotations = res.json()['annotations']
     for cannotation in annotations:
@@ -943,7 +948,7 @@ def annotations_list():
 def experiments_list():
     err, webpage = get_experiments_list()
     if err:
-        webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str=err)
+        webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str=err)
         return(webPageTemp, 400)
     return webpage
 
@@ -970,7 +975,7 @@ def get_experiments_list():
         msg = 'no experiments found.'
         debug(3, msg)
         return msg, msg
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact experiment List')
+    webPage = render_header(title='dbBact experiment List')
     webPage += render_template('explist.html')
     for cexp in explist:
         cid = cexp[0]
@@ -1074,7 +1079,7 @@ def get_taxonomy_info(taxonomy):
         tax_seq_list += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), cseqinfo['seq'])
         tax_seq_list += '</tr>'
 
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact ontology')
+    webPage = render_header(title='dbBact ontology')
     webPage += render_template('taxinfo.html', taxonomy=taxonomy, seq_count=len(tax_seqs), details=tax_seq_list)
 
     webPage += draw_annotation_details(annotations)
@@ -1128,7 +1133,7 @@ def get_hash_info(hash_str):
             seq_web += '<br>'
         seq_web += seq.upper()
 
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact ontology')
+    webPage = render_header(title='dbBact ontology')
     webPage += render_template('hashinfo.html', hash_place_holder=hash_str, seq_names_place_holder=seq_web)
     webPage += draw_annotation_details(annotations)
     webPage += render_template('footer.html')
@@ -1167,7 +1172,7 @@ def get_silva_info(silva_str):
     annotations = res.json().get('annotations')
 
     if len(annotations) == 0:
-        webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact ontology')
+        webPage = render_header(title='dbBact ontology')
         webPage += 'No annotations found for silva sequence %s' % silva_str
         webPage += render_template('footer.html')
         return 'no annotations found', webPage
@@ -1196,7 +1201,7 @@ def get_silva_info(silva_str):
         seq_web += '\n'
         seq_web += '(' + silva_seq_tax[idx].lower() + ')\n'
 
-    webPage = render_template('header.html', header_color=get_dbbact_server_color(), title='dbBact ontology')
+    webPage = render_header(title='dbBact ontology')
     webPage += render_template('silvainfo.html', silva_place_holder=silva_str, seq_names_place_holder=seq_web, number_seqs_place_holder=total_num_seqs)
     webPage += render_sequence_annotations(annotations)
     # webPage += draw_annotation_details(annotations)
@@ -1220,13 +1225,13 @@ def experiment_info(expid):
     """
 
     # get the experiment details
-    webPage = render_template('header.html', header_color=get_dbbact_server_color())
+    webPage = render_header()
     res = requests.get(dbbact_server_address + '/experiments/get_details', json={'expId': expid})
     if res.status_code == 200:
         webPage += draw_experiment_info(expid, res.json()['details'])
     else:
         message = Markup('Experiment ID <b>%s</b> was not found.' % expid)
-        return(render_template('header.html', header_color=get_dbbact_server_color(), title='Not found') +
+        return(render_header(title='Not found') +
                render_template('error.html', title='Not found',
                                message=message) +
                render_template('footer.html'), 400)
@@ -1302,13 +1307,13 @@ def annotation_seqs(annotationid):
     if res.status_code != 200:
         msg = 'Error encountered when getting info for annotation ID %d: %s' % (annotationid, res.content)
         debug(6, msg)
-        return(render_template('header.html', header_color=get_dbbact_server_color(), title='Not found') +
+        return(render_header(title='Not found') +
                render_template('error.html', title='Not found',
                                message=msg) +
                render_template('footer.html'), 600)
     annotation = res.json()
     shortdesc = getannotationstrings(annotation)
-    webPage = render_template('header.html', header_color=get_dbbact_server_color())
+    webPage = render_header()
     webPage += render_template('annotseqs.html', annotationid=annotationid)
     webPage += '<div style="margin: 20px;"><blockquote style="font-size: 1em;"><p>%s</p></blockquote></div>\n' % shortdesc
 
@@ -1320,7 +1325,7 @@ def annotation_seqs(annotationid):
     if res.status_code != 200:
         msg = 'Error encountered when getting sequences for annotation ID %d: %s' % (annotationid, res.content)
         debug(6, msg)
-        return(render_template('header.html', header_color=get_dbbact_server_color(), title='Not found') +
+        return(render_header(title='Not found') +
                render_template('error.html', title='Not found',
                                message=msg) +
                render_template('footer.html'), 600)
@@ -1366,7 +1371,7 @@ def forgot_password_submit():
     json_user = {'user': usermail}
     httpRes = requests.post(dbbact_server_address + '/users/forgot_password', json=json_user)
     if httpRes.status_code == 200:
-        webpage = render_template('header.html', header_color=get_dbbact_server_color(), title='Password Recovery')
+        webpage = render_header(title='Password Recovery')
         webpage += render_template('recover_form.html')
     else:
         webpage = render_template('done_fail.html', mes='Failed to reset password', error=httpRes.text)
@@ -1432,7 +1437,7 @@ def user_info(userid):
         desc = userInfo.get('description', '')
         email = userInfo.get('email', '-')
 
-        webPage = render_template('header.html', header_color=get_dbbact_server_color(), title=username)
+        webPage = render_header(title=username)
         webPage += render_template('userinfo.html', userid=userid, name=name, username=username, desc=desc, email=email)
 
         # get user annotation
@@ -1445,7 +1450,7 @@ def user_info(userid):
     else:
         message = Markup('Failed to get user information:<br><br><blockquote><code>%s</code></blockquote>'
                          % httpRes.content)
-        return(render_template('header.html', header_color=get_dbbact_server_color(), title='Not found') +
+        return(render_header(title='Not found') +
                render_template('error.html', title='Not found',
                                message=message) +
                render_template('footer.html'))
@@ -1630,7 +1635,7 @@ def annotation_seq_download(annotationid):
     seqs = annotation.get('sequences')
     if seqs is None:
         debug(6, 'No sequences found')
-        webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title='Error') + render_template('error_page.html', error_str='No sequences found')
+        webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='No sequences found')
         return(webPageTemp, 400)
     output = ''
     for idx, cseq in enumerate(seqs):
@@ -1779,7 +1784,7 @@ def reset_password():
     URL: /reset password
     Method: POST
     """
-    webpage = render_template('header.html', header_color=get_dbbact_server_color(), title='Reset Password')
+    webpage = render_header(title='Reset Password')
     webpage += render_template('reset_password.html')
     return webpage
 
@@ -1791,7 +1796,7 @@ def about():
     URL: /about
     Method: POST
     """
-    webpage = render_template('header.html', header_color=get_dbbact_server_color(), title='About Us')
+    webpage = render_header(title='About Us')
     webpage += render_template('about.html') 
     return webpage
 
@@ -1824,7 +1829,7 @@ def add_data():
         import json
         list_of_synonym = json.dumps(res.json())
 
-    webpage = render_template('header.html', header_color=get_dbbact_server_color())
+    webpage = render_header()
     webpage += render_template('add_data.html', syn_list=list_of_synonym, ont_list=list_of_ont, display='{{display}}', group='{{group}}', query='{{query}}')
     return webpage
 
@@ -1857,7 +1862,7 @@ def add_data2():
            import json
            list_of_synonym = json.dumps(res.json())
     
-    webpage = render_template('header.html', header_color=get_dbbact_server_color(), )
+    webpage = render_header()
     webpage += render_template('add_data2.html',syn_list=list_of_synonym,ont_list=list_of_ont,display='{{display}}',group='{{group}}',query='{{query}}')
     return webpage
 
@@ -1896,7 +1901,7 @@ def auto_complete_test():
 def error_message(title, message):
     '''
     '''
-    return(render_template('header.html', header_color=get_dbbact_server_color(), title=title) +
+    return(render_header(title=title) +
            render_template('error.html', title=title,
                            message=Markup(message)) +
            render_template('footer.html'))
@@ -2014,3 +2019,44 @@ def term_pair_test():
     else:
         wpart += '<p></p>'
     return wpart
+
+
+def get_alert_text(filename='dbbact_website_alert.txt'):
+    try:
+        with open(filename) as fl:
+            alert_text = fl.readlines()
+            if len(alert_text) > 0:
+                alert_text = [x.strip() for x in alert_text]
+                alert_text = ';'.join(alert_text)
+            else:
+                alert_text = ''
+    except:
+        with open(filename, 'w') as fl:
+            debug(5, 'empty alert file created: %s' % filename)
+        alert_text = ''
+    return alert_text
+
+
+def render_header(title='dbBact', alert_text=True, **kwargs):
+    '''Render the header template
+
+    Parameters
+    ----------
+    title: str, optional
+        title of the page
+    alert_text: str or bool, optional
+        if True, display an alert text if the "DBBACT_WEBSITE_ALERT_MSG" is set and not empty.
+        if False, never show an alert
+        if str, show the alert provided in str
+
+    Returns
+    -------
+    str: the rendered html header
+    '''
+    if alert_text is True:
+        alert_text = get_alert_text()
+    elif alert_text is False:
+        alert_text = ''
+
+    webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title=title, alert_text=alert_text)
+    return webPageTemp
