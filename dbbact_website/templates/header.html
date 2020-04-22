@@ -79,6 +79,19 @@
     <td colspan="7"></td>
     </tr>
     </table>
+    <div class="alert alert-danger collapse alert-dismissible" role="alert" id="GeneralAlert">
+      <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+      <span>
+      <p> {{ alert_text }} </p>
+      </span>
+    </div>
+    <!-- Show the alert if needed -->
+    <script type="text/javascript">
+        var alert_text = '{{ alert_text }}';
+        if ( alert_text.length > 0 ) {
+          $('#GeneralAlert').show();
+      }
+    </script>
     <!--
     <nav style="background-color:#006e98;height:30px" class="navbar navbar-default">
       <div class="container-fluid">

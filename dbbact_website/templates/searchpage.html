@@ -114,6 +114,21 @@
     </script>
   </head>
   <body>
+
+    <div class="alert alert-danger collapse alert-dismissible" role="alert" id="GeneralAlert">
+      <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+      <span>
+      <p> {{ alert_text }} </p>
+      </span>
+    </div>
+    <!-- Show the alert if needed -->
+    <script type="text/javascript">
+        var alert_text = '{{ alert_text }}';
+        if ( alert_text.length > 0 ) {
+          $('#GeneralAlert').show();
+      }
+    </script>
+
     <div id="divWaitId" style="display: none; cursor: wait;">
         <img style="position: absolute;top: 50%;left: 50%;width: 200px;height: 200px;margin-top: -100px;margin-left: -100px;" src='static/loading.gif'>        
     </div>                      
