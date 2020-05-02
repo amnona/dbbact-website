@@ -1412,8 +1412,8 @@ def recover_user_password():
     return webpage
 
 
-@Site_Main_Flask_Obj.route('/user_info/<int:userid>')
-def user_info(userid):
+@Site_Main_Flask_Obj.route('/user_info/<string:username>')
+def user_info(username):
     """
     get the information about a user
     input:
@@ -1423,28 +1423,45 @@ def user_info(userid):
     output:
     """
     rdata = {}
-    rdata['userid'] = userid
-    if userid < 0:
+    rdata['username'] = username
+    if username is None:
         return "Error: Invalid user"
 
-    debug(1, 'get user info for user %d' % userid)
+    debug(1, 'get user info for user %s' % username)
     # get the experiment details
     httpRes = requests.post(dbbact_server_address + '/users/get_user_public_information', json=rdata)
     if httpRes.status_code == 200:
         userInfo = httpRes.json()
-        username = userInfo.get('name', '')
-        name = userInfo.get('username', '')
-        desc = userInfo.get('description', '')
-        email = userInfo.get('email', '-')
-
-        webPage = render_header(title=username)
-        webPage += render_template('userinfo.html', userid=userid, name=name, username=username, desc=desc, email=email)
+        username = userInfo.get('name')
+        name = userInfo.get('username', 'NA')
+        if len(username) == 0:
+            username = 'NA'
+        desc = userInfo.get('description')
+        if desc is None:
+            desc = 'NA'
+        email = userInfo.get('email', 'NA')
+        userid = userInfo.get('id', 0)
+        total_annotations = 'NA'
+        total_experiments = 'NA'
 
         # get user annotation
         forUserId = {'foruserid': userid}
         httpRes = requests.get(dbbact_server_address + '/users/get_user_annotations', json=forUserId)
         if httpRes.status_code == 200:
-            webPage += draw_annotation_details(httpRes.json().get('userannotations'))
+            annotations = httpRes.json().get('userannotations')
+            total_annotations = len(annotations)
+            exps = set()
+            for cannotation in annotations:
+                if 'expid' in cannotation:
+                    exps.add(cannotation['expid'])
+            total_experiments = len(exps)
+        else:
+            annotations = None
+        webPage = render_header(title=username)
+        webPage += render_template('userinfo.html', userid=userid, name=name, username=username, desc=desc, email=email, total_annotations=total_annotations, total_experiments=total_experiments)
+
+        if annotations is not None:
+            webPage += draw_annotation_details(annotations)
         webPage += render_template('footer.html')
         return webPage
     else:
@@ -1544,7 +1561,7 @@ def draw_annotation_table(annotations, include_ratio=True):
         # add user name+link
         userid = dataRow.get('userid', 'not found')
         username = dataRow.get('username', 'not found')
-        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.user_info', userid=userid), username)
+        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.user_info', username=username), username)
 
         # add the annotation description
         cdesc = getannotationstrings(dataRow)
