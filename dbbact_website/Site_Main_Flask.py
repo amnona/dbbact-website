@@ -7,7 +7,7 @@ import json
 import requests
 
 import matplotlib as mpl
-from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup
+from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string
 
 from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
 from .term_pairs import get_enriched_term_pairs, get_enrichment_score
@@ -462,7 +462,7 @@ def search_results():
             return webPage
         # so we can't find it
         debug(2, 'search sequence/term/etc not found for %s' % sequence)
-        return error_message('Not found', 'Keyword <b>%s</b> was not found in dbBact ontology '
+        return error_message('Not found', 'Keyword "%s" was not found in dbBact ontology '
                              'or taxonomy.' % sequence)
 
     # 50 < length < 100 - it's a sequence but not long enough
@@ -524,7 +524,7 @@ def sequence_annotations(sequence):
     if httpRes.status_code != requests.codes.ok:
         debug(6, "sequence annotations Error code:" + str(httpRes.status_code))
         webPage = render_header(title='dbBact sequence annotation')
-        webPage += "Failed to get annotations for sequence:\n%s" % sequence
+        webPage += "Failed to get annotations for sequence:\n%s" % Markup.escape(sequence)
         webPage += render_template('footer.html')
     else:
         annotations = httpRes.json().get('annotations')
@@ -593,7 +593,7 @@ def draw_sequences_annotations(seqs):
     res = requests.get(get_dbbact_server_address() + '/sequences/get_list_annotations',
                        json={'sequences': seqs})
     if res.status_code != 200:
-        msg = 'error getting annotations for sequences : %s' % res.content
+        msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
         debug(6, msg)
         return msg, msg
     seqannotations = res.json()['seqannotations']
@@ -634,7 +634,7 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[]):
     res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
                        json={'sequences': seqs})
     if res.status_code != 200:
-        msg = 'error getting annotations for sequences : %s' % res.content
+        msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
         debug(6, msg)
         return msg, msg
 
@@ -747,16 +747,16 @@ def annotation_info(annotationid):
     webPage += draw_annotation_table([annotation])
 
     webPage += render_template('annotdetail.html')
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('description', annotation['description'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('type', annotation['annotationtype'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('num_sequences', annotation['num_sequences'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('region', annotation['primer'])
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('description', Markup.escape(annotation['description']))
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('type', Markup.escape(annotation['annotationtype']))
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('num_sequences', Markup.escape(annotation['num_sequences']))
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('region', Markup.escape(annotation['primer']))
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('flags', len(annotation['flags']))
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('agent', annotation['agent'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('method', annotation['method'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('date', annotation['date'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('username', annotation['username'])
-    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('private', annotation['private'])
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('agent', Markup.escape(annotation['agent']))
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('method', Markup.escape(annotation['method']))
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('date', Markup.escape(annotation['date']))
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('username', Markup.escape(annotation['username']))
+    webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('private', Markup.escape(annotation['private']))
     annotationdetails = annotation['details']
 
     for cad in annotationdetails:
@@ -788,7 +788,7 @@ def annotation_info(annotationid):
         cparents = list(set(cparents))
         webPage += '<p>%s: ' % ctype
         for cparentname in cparents:
-            webPage += '<a href=' + urllib.parse.quote('../ontology_info/' + str(cparentname)) + '>' + cparentname + '</a> '
+            webPage += '<a href=' + urllib.parse.quote('../ontology_info/' + str(cparentname)) + '>' + str(Markup.escape(cparentname)) + '</a> '
         webPage += '</p>'
     webPage += '</blockquote></div>'
     webPage += render_template('footer.html')
@@ -906,19 +906,19 @@ def get_ontology_info(term):
     # get the experiment annotations
     res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term, 'get_children': 'true'})
     if res.status_code != 200:
-        msg = 'error getting annotations for ontology term %s: %s' % (term, res.content)
+        msg = 'error getting annotations for ontology term %s: %s' % (Markup.escape(term), res.content)
         debug(6, msg)
         return msg, msg
     annotations = res.json()['annotations']
     if len(annotations) == 0:
-        debug(1, 'ontology term %s not found' % term)
+        debug(1, 'ontology term %s not found' % Markup.escape(term))
         return 'term not found', 'term not found'
 
     for cannotation in annotations:
         cannotation['website_sequences'] = [0]
 
     webPage = render_header(title='dbBact taxonomy')
-    webPage += '<h1>Summary for ontology term: %s</h1>\n' % term
+    webPage += '<h1>Summary for ontology term: %s</h1>\n' % Markup.escape(term)
     webPage += 'Number of annotations with term: %d' % len(annotations)
     webPage += '<h2>Annotations:</h2>'
     webPage += draw_annotation_details(annotations)
@@ -989,7 +989,7 @@ def get_experiments_list():
                 cexpname += '<br>'
             cexpname += cval
         webPage += '<tr><td><a href=%s>%d</a></td>' % (url_for('.experiment_info', expid=cid), cid)
-        webPage += '<td>%s</td>' % cexpname
+        webPage += '<td>%s</td>' % Markup.escape(cexpname)
         # webPage += '<td><a href=exp_info/' + str(cid) + ">" + str(cid) + "</a></td>"
         # webPage += '<td>' + cval + '</td>'
         webPage += "</tr>"
@@ -1038,13 +1038,13 @@ def get_taxonomy_info(taxonomy):
     # get the taxonomy annotations
     res = requests.get(get_dbbact_server_address() + '/sequences/get_taxonomy_annotations', json={'taxonomy': taxonomy})
     if res.status_code != 200:
-        msg = 'error getting taxonomy annotations for %s: %s' % (taxonomy, res.content)
+        msg = 'error getting taxonomy annotations for %s: %s' % (Markup.escape(taxonomy), res.content)
         debug(6, msg)
         return msg, msg
     tax_seqs = res.json()['seqids']
     annotations_counts = res.json()['annotations']
     if len(annotations_counts) == 0:
-        msg = 'no annotations found for taxonomy %s' % taxonomy
+        msg = 'no annotations found for taxonomy %s' % Markup.escape(taxonomy)
         debug(1, msg)
         return msg, msg
 
@@ -1061,7 +1061,7 @@ def get_taxonomy_info(taxonomy):
     # get all dbbact sequences containing the taxonomy
     res = requests.get(get_dbbact_server_address() + '/sequences/get_taxonomy_sequences', json={'taxonomy': taxonomy})
     if res.status_code != 200:
-        msg = 'error getting taxonomy sequences for %s: %s' % (taxonomy, res.content)
+        msg = 'error getting taxonomy sequences for %s: %s' % (Markup.escape(taxonomy), res.content)
         debug(6, msg)
         return msg, msg
     seqs = res.json()['sequences']
@@ -1076,7 +1076,7 @@ def get_taxonomy_info(taxonomy):
         tax_seq_list += '<td>' + str(cseqinfo['total_experiments']) + '</td>'
         tax_seq_list += '<td>' + str(cseqinfo['total_annotations']) + '</td>'
         tax_seq_list += '<td>' + cseqinfo['taxonomy'] + '</td>'
-        tax_seq_list += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), cseqinfo['seq'])
+        tax_seq_list += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
         tax_seq_list += '</tr>'
 
     webPage = render_header(title='dbBact ontology')
@@ -1106,14 +1106,14 @@ def get_hash_info(hash_str):
     # get the hash annotations
     res = requests.get(get_dbbact_server_address() + '/sequences/get_hash_annotations', json={'hash': hash_str})
     if res.status_code != 200:
-        msg = 'error getting hash annotations for %s: %s' % (hash_str, res.content)
+        msg = 'error getting hash annotations for %s: %s' % (Markup.escape(hash_str), res.content)
         debug(6, msg)
         return msg, msg
     seq_strs = res.json()['seqstr']
     hash_seqs = res.json()['seqids']
     annotations_counts = res.json()['annotations']
     if len(annotations_counts) == 0:
-        msg = 'no annotations found for hash %s' % hash_str
+        msg = 'no annotations found for hash %s' % Markup.escape(hash_str)
         debug(1, msg)
         return msg, msg
 
@@ -1164,7 +1164,7 @@ def get_silva_info(silva_str):
     # get the annotations
     res = requests.get(get_dbbact_server_address() + '/sequences/get_annotations', json={'sequence': silva_str, 'dbname': 'silva'})
     if res.status_code != 200:
-        msg = 'error getting silva annotations for %s: %s' % (silva_str, res.content)
+        msg = 'error getting silva annotations for %s: %s' % (Markup.escape(silva_str), res.content)
         debug(6, msg)
         return msg, msg
 
@@ -1173,7 +1173,7 @@ def get_silva_info(silva_str):
 
     if len(annotations) == 0:
         webPage = render_header(title='dbBact ontology')
-        webPage += 'No annotations found for silva sequence %s' % silva_str
+        webPage += 'No annotations found for silva sequence %s' % Markup.escape(silva_str)
         webPage += render_template('footer.html')
         return 'no annotations found', webPage
 
@@ -1188,7 +1188,7 @@ def get_silva_info(silva_str):
     silva_seq_tax = [x['taxonomy'] for x in res.json()['sequences']]
     silva_seq_ids = ids
     if len(annotations) == 0:
-        msg = 'no annotations found for silva id %s' % silva_str
+        msg = 'no annotations found for silva id %s' % Markup.escape(silva_str)
         debug(1, msg)
         return msg, msg
 
@@ -1230,7 +1230,7 @@ def experiment_info(expid):
     if res.status_code == 200:
         webPage += draw_experiment_info(expid, res.json()['details'])
     else:
-        message = Markup('Experiment ID <b>%s</b> was not found.' % expid)
+        message = 'Experiment ID:%s was not found.' % expid
         return(render_header(title='Not found') +
                render_template('error.html', title='Not found',
                                message=message) +
@@ -1315,7 +1315,7 @@ def annotation_seqs(annotationid):
     shortdesc = getannotationstrings(annotation)
     webPage = render_header()
     webPage += render_template('annotseqs.html', annotationid=annotationid)
-    webPage += '<div style="margin: 20px;"><blockquote style="font-size: 1em;"><p>%s</p></blockquote></div>\n' % shortdesc
+    webPage += '<div style="margin: 20px;"><blockquote style="font-size: 1em;"><p>%s</p></blockquote></div>\n' % Markup.escape(shortdesc)
 
     webPage += '<h2>Download</h2>'
     webPage += draw_download_fasta_button(annotationid)
@@ -1345,7 +1345,7 @@ def draw_sequences_info(sequences):
         cseqinfo['seq'] = cseqinfo['seq'].upper()
         webPage += "<tr>"
         webPage += '<td>' + cseqinfo['taxonomy'] + '</td>'
-        webPage += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), cseqinfo['seq'])
+        webPage += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
         webPage += '<td>' + 'na' + '</td><tr>'
     webPage += '</table>'
     return webPage
@@ -1556,30 +1556,30 @@ def draw_annotation_table(annotations, include_ratio=True):
         wpart += '  <tr>'
         # add the experimentid info+link
         expid = dataRow.get('expid', 'not found')
-        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.experiment_info', expid=expid), expid)
+        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.experiment_info', expid=expid), Markup.escape(expid))
 
         # add user name+link
         userid = dataRow.get('userid', 'not found')
         username = dataRow.get('username', 'not found')
-        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.user_info', username=username), username)
+        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.user_info', username=username), Markup.escape(username))
 
         # add the annotation description
         cdesc = getannotationstrings(dataRow)
         annotationid = dataRow.get('annotationid', -1)
-        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.annotation_info', annotationid=annotationid), cdesc)
+        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.annotation_info', annotationid=annotationid), Markup.escape(cdesc))
 
         # add the annotation date
-        wpart += '<td>%s</td>' % dataRow['date']
+        wpart += '<td>%s</td>' % Markup.escape(dataRow['date'])
 
         # add the annotation region
-        wpart += '<td>%s</td>' % dataRow['primer']
+        wpart += '<td>%s</td>' % Markup.escape(dataRow['primer'])
 
         # add the number of flags
         if len(dataRow['flags']) > 0:
             flags = '%s' % len(dataRow['flags'])
         else:
             flags = 'No'
-        wpart += '<td>%s</td>' % flags
+        wpart += '<td>%s</td>' % Markup.escape(flags)
 
         # add the sequences
         annotationid = dataRow.get('annotationid', -1)
@@ -1593,7 +1593,7 @@ def draw_annotation_table(annotations, include_ratio=True):
         else:
             observed_sequences = '?'
             sequences_string = '%s' % num_sequences
-        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.annotation_seqs', annotationid=annotationid), sequences_string)
+        wpart += "<td><a href=%s>%s</a></td>" % (url_for('.annotation_seqs', annotationid=annotationid), Markup.escape(sequences_string))
         wpart += '</tr>\n'
     # wpart += '</table>\n'
     # wpart += '</div>\n'
@@ -1633,10 +1633,10 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
     for cterm, cscore in data:
         if cterm[0] == '-':
             ctermlink = cterm[1:]
-            cterm = 'LOWER IN %s' % ctermlink
+            cterm = 'LOWER IN %s' % Markup.escape(ctermlink)
         else:
             ctermlink = cterm
-        wpart += '<tr><td><a href=%s>%s</a></td><td>%f</td></tr>\n' % (url_for('.ontology_info', term=ctermlink), cterm, cscore)
+        wpart += '<tr><td><a href=%s>%s</a></td><td>%f</td></tr>\n' % (url_for('.ontology_info', term=ctermlink), Markup.escape(cterm), cscore)
     wpart += '</table>\n'
     wpart += '</div>\n'
     return wpart
@@ -1656,7 +1656,7 @@ def annotation_seq_download(annotationid):
         return(webPageTemp, 400)
     output = ''
     for idx, cseq in enumerate(seqs):
-        output += '>%d %s\n%s\n' % (idx, cseq.get('taxonomy', ''), cseq['seq'])
+        output += str(Markup.escape('>%d %s\n%s\n' % (idx, cseq.get('taxonomy', ''), cseq['seq'])))
     response = make_response(output)
     response.headers["Content-Disposition"] = "attachment; filename=annotation-%d-sequences.fa" % annotationid
     return response
@@ -1910,7 +1910,7 @@ def auto_complete_test():
     else:
            import json
            list_of_synonym = json.dumps(res.json())
-    
+
     webpage = render_template('demo-autocomplete.html',syn_list=list_of_synonym,ont_list=list_of_ont,display='{{display}}',group='{{group}}',query='{{query}}')
     return webpage
 
@@ -1920,7 +1920,7 @@ def error_message(title, message):
     '''
     return(render_header(title=title) +
            render_template('error.html', title=title,
-                           message=Markup(message)) +
+                           message=message) +
            render_template('footer.html'))
 
 
