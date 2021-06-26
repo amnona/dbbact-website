@@ -1173,7 +1173,8 @@ def get_species_info(species):
         return msg, msg
     ids = res.json()['ids']
     if len(ids) == 0:
-        return "No sequences found for species %s" % species
+        msg = "No sequences found for species %s" % species
+        return msg, msg
     res = requests.get(get_dbbact_server_address() + '/sequences/get_info', json={'seqids': ids})
     if res.status_code != 200:
         msg = 'error getting sequence info: %s' % (res.content)
