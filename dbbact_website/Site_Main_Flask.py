@@ -450,6 +450,12 @@ def search_results():
         if not err:
             debug(2, 'get info for taxonomy %s' % sequence)
             return webPage
+        # maybe a SILVA species name?
+        if len(sequence.split(' ')) > 1:
+            err, webPage = get_species_info(sequence)
+            if not err:
+                debug(2, 'get species info')
+                return webPage
         # or maybe based on qiime2 hash string
         err, webPage = get_hash_info(sequence)
         if not err:
@@ -517,9 +523,36 @@ def sequence_annotations(sequence):
     # Get the annotations for the sequence
     httpRes = requests.get(dbbact_server_address + '/sequences/get_annotations', json=rdata)
 
+    # Get the species and taxonomies based on 100% matching to the whole sequence database (i.e. silva)
+    species = []
+    num_species_match = 0
+    httpResTax = requests.get(dbbact_server_address + '/sequences/get_whole_seq_taxonomy', json=rdata)
+    if httpResTax.status_code == requests.codes.ok:
+        species = httpResTax.json().get('species')
+        ids = httpResTax.json().get('ids')
+    species_details = ''
+    species_dict = defaultdict(int)
+    species_ids = defaultdict(list)
+    for cspecies, cwsid in zip(species, ids):
+        if cspecies == '':
+            continue
+        species_dict[cspecies] += 1
+        species_ids[cspecies].append(cwsid)
+        num_species_match += 1
+    species_dict = dict(sorted(species_dict.items(), key=lambda item: item[1], reverse=True))
+    for ck, cv in species_dict.items():
+        species_details += '<tr><td><a href=%s>%s</a></td><td>%s</td><td>' % (url_for('.species_info', species=ck), ck, cv)
+        for idx, ccid in enumerate(species_ids[ck]):
+            if idx > 5:
+                break
+            species_details += '<a href=%s target="_blank">%s</a>, ' % ('https://www.arb-silva.de/browser/ssu-138.1/' + ccid, ccid)
+        if idx > 5:
+            species_details += ',...'
+        species_details += '</td></tr>'
+
     # Create the results page
     webPage = render_header(title='dbBact sequence annotation')
-    webPage += render_template('seqinfo.html', sequence=sequence.upper(), taxonomy=taxStr)
+    webPage += render_template('seqinfo.html', sequence=sequence.upper(), taxonomy=taxStr, species_details=species_details, num_species_match=num_species_match)
 
     if httpRes.status_code != requests.codes.ok:
         debug(6, "sequence annotations Error code:" + str(httpRes.status_code))
@@ -614,7 +647,7 @@ def draw_sequences_annotations(seqs):
     return '', webPage
 
 
-def draw_sequences_annotations_compact(seqs, ignore_exp=[]):
+def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False):
     '''Draw the webpage for annotations for a set of sequences
 
     Parameters
@@ -622,6 +655,10 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[]):
     seqs : list of str sequences (ACGT)
     ignore_exp : list of int (optional)
         list of experiment ids to ignore when calculating the score. None to include all experiments
+    draw_only_details: bool, optional
+        True to plot only the annotations part (no header/footer)
+        False to draw complete page
+
 
     Returns
     -------
@@ -647,10 +684,14 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[]):
         return msg, msg
     term_info = res['term_info']
 
-    webPage = render_header()
+    if draw_only_details:
+        webPage = ''
+    else:
+        webPage = render_header()
     webPage += '<h2>Annotations for %d sequences</h2>' % len(seqs)
     webPage += draw_group_annotation_details(annotations, seqannotations, term_info=term_info, ignore_exp=ignore_exp, sequences=seqs)
-    webPage += render_template('footer.html')
+    if not draw_only_details:
+        webPage += render_template('footer.html')
     return '', webPage
 
 
@@ -1083,6 +1124,92 @@ def get_taxonomy_info(taxonomy):
     webPage += render_template('taxinfo.html', taxonomy=taxonomy, seq_count=len(tax_seqs), details=tax_seq_list)
 
     webPage += draw_annotation_details(annotations)
+    webPage += render_template('footer.html')
+    return '', webPage
+
+
+@Site_Main_Flask_Obj.route('/species_info/<string:species>')
+def species_info(species):
+    '''
+    get the information on all sequences matching SILVA sequences with the given species name
+
+    Parameters
+    ----------
+    species : str
+        the SILVA species name (i.e. 'akkermansia muciniphila') to match
+
+    Returns
+    -------
+    err : str
+        empty ('') if found, none empty if error encountered
+    webPage : str
+        the html of the resulting table
+    '''
+    err, webpage = get_species_info(species)
+    return webpage
+
+
+def get_species_info(species):
+    '''
+    get the information all sequences and studies containing any bacteria with SILVA species name
+
+    Parameters
+    ----------
+    species : str
+        the species name to search for
+
+    Returns
+    -------
+    err : str
+        empty ('') if found, none empty if error encountered
+    webPage : str
+        the html of the resulting table
+    '''
+    # get the sequences
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_species_seqs', json={'species': species})
+    if res.status_code != 200:
+        msg = 'error getting species sequences for %s: %s' % (Markup.escape(species), res.content)
+        debug(6, msg)
+        return msg, msg
+    ids = res.json()['ids']
+    if len(ids) == 0:
+        return "No sequences found for species %s" % species
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_info', json={'seqids': ids})
+    if res.status_code != 200:
+        msg = 'error getting sequence info: %s' % (res.content)
+        debug(6, msg)
+        return msg, msg
+    seqs = res.json()['sequences']
+    ok_seqs = []
+    for cseq in seqs:
+        if 'total_experiments' in cseq:
+            ok_seqs.append(cseq)
+    seqs = ok_seqs
+
+    # add the list of bacterial sequences with the taxonomy
+    tax_seq_list = ''
+    # sort so highest total experiments sequence is first
+    seqs = sorted(seqs, key=lambda k: k['total_experiments'], reverse=True)
+    # true seqs stores a list of the actual sequences - for plotting the wordcloud etc.
+    true_seqs = []
+    for cseqinfo in seqs:
+        cseqinfo['seq'] = cseqinfo['seq'].upper()
+        tax_seq_list += "<tr>"
+        tax_seq_list += '<td>' + str(cseqinfo['total_experiments']) + '</td>'
+        tax_seq_list += '<td>' + str(cseqinfo['total_annotations']) + '</td>'
+        tax_seq_list += '<td>' + cseqinfo['taxonomy'] + '</td>'
+        tax_seq_list += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
+        tax_seq_list += '</tr>'
+        true_seqs.append(cseqinfo['seq'])
+
+    webPage = render_header(title='dbBact ontology')
+    webPage += render_template('taxinfo.html', taxonomy=species, seq_count=len(ids), details=tax_seq_list)
+    err, seq_annotations_compact_part = draw_sequences_annotations_compact(true_seqs, ignore_exp=[], draw_only_details=True)
+    if not err:
+        webPage += seq_annotations_compact_part
+    else:
+        webPage += '<br>Sequence details error encountered<br>'
+    # webPage += draw_annotation_details(annotations)
     webPage += render_template('footer.html')
     return '', webPage
 
@@ -1814,7 +1941,7 @@ def about():
     Method: POST
     """
     webpage = render_header(title='About Us')
-    webpage += render_template('about.html') 
+    webpage += render_template('about.html')
     return webpage
 
 
