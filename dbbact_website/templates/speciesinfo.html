@@ -1,0 +1,48 @@
+<style>
+  #species-panel {
+    margin-left: 100px;
+    margin-right: 100px;
+  }
+  #species-box {
+    padding: 20px;
+    overflow: auto;
+    font-size: 20px;
+  }
+
+ </style>
+
+<div id="species-panel" class="panel panel-default">
+  <div class="panel-heading">
+    SILVA exact match species:
+  </div>
+
+  <div id="species-box" class="panel-body">
+    <br>
+    <button id="collapse-btn" data-toggle="collapse" data-target="#specieslist">Species matches</button>
+    <br>
+    <div id="specieslist" class="collapse">
+      <table id="species-info-list-tbl" class="table responsive" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>species</th>
+          <th># matches</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ details | safe}}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+
+<script type="text/javascript">
+  $(document).ready(function() {
+    $('#species-info-seq-list-tbl').DataTable({'scrollX': true, 'autoWidth': true, 'paging': true, 'lengthMenu':[10, 25, 50, 100, -1], 'pageLength': 10, 'aaSorting': []});
+} );
+
+$('#specieslist').on('shown.bs.collapse', function() {
+   $('#species-info-seq-list-tbl').DataTable().columns.adjust().draw();
+ });
+</script>
