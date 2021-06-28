@@ -478,6 +478,7 @@ def search_results():
         return(webPageTemp, 400)
 
     # so it's a legit sequence - let's get the annotations for it
+    debug(2, 'guess it is a sequence')
     webPage = sequence_annotations(sequence)
     return webPage
 
