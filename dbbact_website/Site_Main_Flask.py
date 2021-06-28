@@ -531,6 +531,8 @@ def sequence_annotations(sequence):
     if httpResTax.status_code == requests.codes.ok:
         species = httpResTax.json().get('species')
         ids = httpResTax.json().get('ids')
+    else:
+        return httpResTax
     species_details = ''
     species_dict = defaultdict(int)
     species_ids = defaultdict(list)
