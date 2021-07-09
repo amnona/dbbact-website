@@ -505,7 +505,7 @@ def sequences_wordcloud():
 @Site_Main_Flask_Obj.route('/sequence_annotations/<string:sequence>')
 def sequence_annotations(sequence):
     '''Get annotations for a given sequence and return the info page about it
-    (including wordcloud, term table, etc.)
+    (including species info, wordcloud, term table, etc.)
 
     Parameters
     ----------
@@ -520,9 +520,6 @@ def sequence_annotations(sequence):
     httpResTax = requests.get(dbbact_server_address + '/sequences/get_taxonomy_str', json=rdata)
     if httpResTax.status_code == requests.codes.ok:
         taxStr = httpResTax.json().get('taxonomy')
-
-    # Get the annotations for the sequence
-    httpRes = requests.get(dbbact_server_address + '/sequences/get_annotations', json=rdata)
 
     # Get the species and taxonomies based on 100% matching to the whole sequence database (i.e. silva)
     species = []
@@ -554,15 +551,20 @@ def sequence_annotations(sequence):
         species_details += '</td></tr>'
 
     # Create the results page
+    # the sequence info part, with species details
     webPage = render_header(title='dbBact sequence annotation')
     webPage += render_template('seqinfo.html', sequence=sequence.upper(), taxonomy=taxStr, species_details=species_details, num_species_match=num_species_match)
 
+    # Get the annotations for the sequence
+    httpRes = requests.get(dbbact_server_address + '/sequences/get_annotations', json=rdata)
     if httpRes.status_code != requests.codes.ok:
+        # problem with the annotations per sequence
         debug(6, "sequence annotations Error code:" + str(httpRes.status_code))
         webPage = render_header(title='dbBact sequence annotation')
         webPage += "Failed to get annotations for sequence:\n%s" % Markup.escape(sequence)
         webPage += render_template('footer.html')
     else:
+        # draw the annotations info
         annotations = httpRes.json().get('annotations')
         webPage += render_sequence_annotations(annotations)
         webPage += render_template('footer.html')
@@ -1169,16 +1171,19 @@ def get_species_info(species):
         the html of the resulting table
     '''
     # get the sequences
+    debug(2, 'Get species info')
     res = requests.get(get_dbbact_server_address() + '/sequences/get_species_seqs', json={'species': species})
     if res.status_code != 200:
         msg = 'error getting species sequences for %s: %s' % (Markup.escape(species), res.content)
         debug(6, msg)
         return msg, msg
     ids = res.json()['ids']
+    debug(2, 'Got %d sequences matching the species %s' % (len(ids), species))
     if len(ids) == 0:
         msg = "No sequences found for species %s" % species
         return msg, msg
     res = requests.get(get_dbbact_server_address() + '/sequences/get_info', json={'seqids': ids})
+    debug(2, 'got info')
     if res.status_code != 200:
         msg = 'error getting sequence info: %s' % (res.content)
         debug(6, msg)
