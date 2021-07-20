@@ -605,7 +605,9 @@ def get_annotations_terms(annotations, get_low=True):
     terms = set()
     for cannotation in annotations:
         details = cannotation['details']
-        for ctype, cterm in details:
+        for cdet in details:
+            ctype = cdet[0]
+            cterm = cdet[1]
             if ctype == 'low':
                 cterm = '-' + cterm
             terms.add(cterm)
