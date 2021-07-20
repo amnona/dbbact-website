@@ -605,7 +605,9 @@ def get_annotations_terms(annotations, get_low=True):
     terms = set()
     for cannotation in annotations:
         details = cannotation['details']
-        for ctype, cterm in details:
+        for cdet in details:
+            ctype = cdet[0]
+            cterm = cdet[1]
             if ctype == 'low':
                 cterm = '-' + cterm
             terms.add(cterm)
@@ -1497,7 +1499,7 @@ def forgot_password_submit():
 
     output:
     """
-
+    debug(3, 'forgot_password_submit')
     usermail = ''
     if request.method == 'GET':
         usermail = request.args['useremail']
@@ -1505,7 +1507,9 @@ def forgot_password_submit():
         usermail = request.form['useremail']
 
     json_user = {'user': usermail}
+    debug(3, 'posting to dbbact-server forgot_password')
     httpRes = requests.post(dbbact_server_address + '/users/forgot_password', json=json_user)
+    debug(3, 'got result')
     if httpRes.status_code == 200:
         webpage = render_header(title='Password Recovery')
         webpage += render_template('recover_form.html')
@@ -1524,7 +1528,7 @@ def recover_user_password():
 
     output:
     """
-
+    debug(3, 'recover_user_password')
     usermail = ''
     if request.method == 'GET':
         usermail = request.args['user']
@@ -1542,8 +1546,10 @@ def recover_user_password():
 
     httpRes = requests.post(dbbact_server_address + '/users/recover_password', json=json_user)
     if httpRes.status_code == 200:
+        debug(3, 'recover_password for user %s succeeded' % usermail)
         webpage = render_template('done_success.html')
     else:
+        debug(5, 'recover password for user %s failed' % usermail)
         webpage = render_template('done_fail.html', mes='Failed to reset password', error=httpRes.text)
     return webpage
 
