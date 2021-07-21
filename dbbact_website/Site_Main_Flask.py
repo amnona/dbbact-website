@@ -1492,10 +1492,10 @@ def draw_sequences_info(sequences):
 @Site_Main_Flask_Obj.route('/forgot_password_submit', methods=['POST', 'GET'])
 def forgot_password_submit():
     """
-    this page will send the forgoten password to the user via mail
+    this page will send the forgoten password to the user via mail. It is called from the reset_password page when submitting the username/email
     input:
     dataid : string
-        user email
+        user name or email
 
     output:
     """
@@ -1515,6 +1515,17 @@ def forgot_password_submit():
         webpage += render_template('recover_form.html')
     else:
         webpage = render_template('done_fail.html', mes='Failed to reset password', error=httpRes.text)
+    return webpage
+
+
+@Site_Main_Flask_Obj.route('/change_password', methods=['POST', 'GET'])
+def change_password():
+    """Ask for username, verification code and new password
+    and submit the change password request to dbBact
+    """
+    debug(3, 'change_password')
+    webpage = render_header(title='Password Recovery')
+    webpage += render_template('recover_form.html')
     return webpage
 
 
@@ -1547,7 +1558,7 @@ def recover_user_password():
     httpRes = requests.post(dbbact_server_address + '/users/recover_password', json=json_user)
     if httpRes.status_code == 200:
         debug(3, 'recover_password for user %s succeeded' % usermail)
-        webpage = render_template('done_success.html')
+        webpage = render_template('update_password_success.html')
     else:
         debug(5, 'recover password for user %s failed' % usermail)
         webpage = render_template('done_fail.html', mes='Failed to reset password', error=httpRes.text)
