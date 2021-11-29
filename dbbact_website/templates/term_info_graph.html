@@ -1,0 +1,51 @@
+ <script src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.20.0/cytoscape.min.js' type='text/javascript'>></script>
+
+<style>
+    #cy {
+        width: 50vw;
+        height: 50vh;
+    }
+</style>
+
+
+ <div id='cy'></div>
+    <script>
+      var cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: {
+          nodes: [ 
+            {{nodes | safe}}
+          ],
+          edges: [
+            {{edges | safe}}
+          ]
+        },
+        style: [
+        {
+        selector: 'edge',
+        style: {
+           'target-arrow-shape': 'triangle',
+           'target-arrow-color': 'black',
+           'arrow-scale': 2,
+           'line-color': 'green', 
+           'curve-style': 'bezier'
+        }},
+        { selector: 'node',
+        style: {
+            // shape: 'circle',
+            'background-color': 'red',
+            label: 'data(name)',
+            width: 'data(num_exp)',
+            height: 'data(num_exp)',
+        },}
+    ] });
+    cy.layout({name: 'cose'}).run();
+    cy.nodes('[name = \'{{term|safe}}\']').style('background-color', 'blue');
+
+    cy.on('tap', 'node', function (evt) {
+        console.log(evt.target.id());
+        location.href = "https://www.yoursite.com";
+  });
+
+    </script>
+  </div>
