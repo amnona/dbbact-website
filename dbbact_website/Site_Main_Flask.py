@@ -944,12 +944,14 @@ def ontology_info(term):
     return webpage
 
 
-def get_ontology_info(term):
+def get_ontology_info(term, show_ontology_tree=True):
     """
     get the information all studies containing an ontology term (exact or as parent)
     input:
     term : str
         the ontology term to look for
+    show_ontology_tree: bool, optional
+        if True, show the term tree graph using cytoscape.js
     """
     # get the experiment annotations
     res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term, 'get_children': 'true'})
@@ -968,6 +970,7 @@ def get_ontology_info(term):
     webPage = render_header(title='dbBact taxonomy')
     webPage += '<h1>Summary for ontology term: %s</h1>\n' % Markup.escape(term)
     webPage += 'Number of annotations with term: %d' % len(annotations)
+    webPage += term_info(term)
     webPage += '<h2>Annotations:</h2>'
     webPage += draw_annotation_details(annotations)
     webPage += render_template('footer.html')
@@ -2230,3 +2233,65 @@ def render_header(title='dbBact', alert_text=True, **kwargs):
 
     webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title=title, alert_text=alert_text)
     return webPageTemp
+
+
+@Site_Main_Flask_Obj.route('/term_info/<string:term>')
+def term_info(term):
+    """
+    get the information about a given term (either term name (i.e. 'feces' or term_id (i.e. 'gaz:000001')))
+
+    Parameters
+    ----------
+    term: str
+        the term_id (i.e. 'gaz:000001') to get the info about
+    """
+    rdata = {}
+    rdata['terms'] = [term]
+    rdata['relation'] = 'both'
+    if term is None:
+        return "Error: Invalid term"
+
+    debug(1, 'get term info for term %s' % term)
+    # get the experiment details
+    httpRes = requests.get(dbbact_server_address + '/ontology/get_family_graph', json=rdata)
+    if httpRes.status_code == 200:
+        termInfo = httpRes.json()['family']
+        if len(termInfo['nodes']) == 0:
+            return 'no results for term %s' % term
+        # get list of all parent terms
+        all_terms = []
+        for cnode in termInfo['nodes']:
+            if 'name' in cnode:
+                all_terms.append(cnode['name'])
+        # get the info about the number of annotations/experiments/sequences per term
+        rdata = {'terms': all_terms}
+        httpRes = requests.get(dbbact_server_address + '/ontology/get_term_stats', json=rdata)
+        if httpRes.status_code == 200:
+            term_counts = httpRes.json()['term_info']
+        else:
+            term_counts = {}
+
+        # create the node and edge data for the cytoscpae graph
+        nodes = ''
+        for cnode in termInfo['nodes']:
+            cnode = cnode.copy()
+            cnumexp = 1
+            cnumanno = 1
+            if 'name' in cnode:
+                if cnode['name'] in term_counts:
+                    cnumexp += term_counts[cnode['name']]['total_experiments']
+                    cnumanno += term_counts[cnode['name']]['total_annotations']
+            else:
+                cnode['name'] = 'NA'
+            if cnumexp > 50:
+                cnumexp = 50
+            cnode['num_exp'] = cnumexp
+            cnode['num_anno'] = cnumanno
+            print(cnode)
+            nodes += '{ data: %s},' % cnode
+        edges = ''
+        for cedge in termInfo['links']:
+            edges += '{ data: %s },' % cedge
+
+        return render_template('term_info_graph.html', term=term, nodes=nodes, edges=edges)
+    return "term %s not found" % term
