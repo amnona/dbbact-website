@@ -1,0 +1,93 @@
+<!-- <link data-require="fontawesome@4.1.0" data-semver="4.2.0" rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" /> -->
+
+<link href="{{ url_for('static', filename='cytoscape-panzoom.css')}}" rel="stylesheet" type="text/css" />
+<link href="{{ url_for('static', filename='font-awesome-4.0.3/css/font-awesome.css')}}" rel="stylesheet" type="text/css" />
+
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape-panzoom/2.4.0/cytoscape-panzoom.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cytoscape-panzoom/2.4.0/cytoscape.js-panzoom.min.css" media="all">
+ -->
+<script src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.20.0/cytoscape.min.js' type='text/javascript'>></script>
+<script src="{{ url_for('static', filename='cytoscape-panzoom.min.js')}}" type="text/javascript"></script>
+
+<!-- <script src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape-panzoom/2.1.4/cytoscape-panzoom.min.js' type="text/javascript"></script> -->
+<!-- <script src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape-panzoom/2.1.4/cytoscape-panzoom.min.js' type="text/javascript"></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape-panzoom/2.1.4/cytoscape-panzoom.min.js' type="text/javascript"></script>
+ -->
+<!-- jquery-ui-1.8.11.custom.min.js,
+
+jquery.cytoscape-panzoom.css'
+ -->
+
+
+ <style>
+    #cydiv {
+        width: 100vw;
+        height: 50vh;
+    }
+</style>
+
+ <div id='cydiv'></div>
+    <script>
+      // var panzoom = require('cytoscape-panzoom');
+      var cy = cytoscape({
+        container: document.getElementById('cydiv'),
+        userZoomingEnabled: false,
+        elements: {
+          nodes: [ 
+            {{nodes | safe}}
+          ],
+          edges: [
+            {{edges | safe}}
+          ]
+        },
+        style: [
+        {
+        selector: 'edge',
+        style: {
+           'target-arrow-shape': 'triangle',
+           'target-arrow-color': 'black',
+           'arrow-scale': 2,
+           'line-color': 'green', 
+           'curve-style': 'bezier'
+        }},
+        { selector: 'node',
+        style: {
+            // shape: 'circle',
+            'background-color': 'red',
+            label: 'data(name)',
+            width: 'data(num_exp)',
+            height: 'data(num_exp)',
+        },}
+    ] });
+    cy.layout({name: 'cose'}).run();
+    cy.nodes('[name = \'{{term|safe}}\']').style('background-color', 'blue');
+
+    cy.on('tap', 'node', function (evt) {
+        console.log(evt.target.id());
+        console.log('pita');
+        console.log(evt.target.data().name );
+        a='lalala';
+        console.log(a);
+        link_location="{{node_link_url|safe}}"+evt.target.data().name;
+        console.log(link_location);
+        location.href = link_location;
+    });
+
+    </script>
+    <script>
+        $('cydiv').cytoscapePanzoom({'autodisableForMobile':false});
+        function zoomin() {
+          cy.zoom(cy.zoom()*1.25);
+        }
+        function zoomout() {
+          cy.zoom(cy.zoom()*(1/1.25));
+        }
+        function reset() {
+          cy.reset();
+        }
+    </script>
+
+  <button onclick="zoomin()">+</button>
+  <button onclick="zoomout()">-</button>
+  <button onclick="reset()">0</button>
+  </div>

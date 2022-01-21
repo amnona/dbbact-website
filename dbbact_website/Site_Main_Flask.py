@@ -7,7 +7,7 @@ import json
 import requests
 
 import matplotlib as mpl
-from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string
+from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app
 
 from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
 from .term_pairs import get_enriched_term_pairs, get_enrichment_score
@@ -112,8 +112,8 @@ def build_res_html(success, expId, isNewExp, annotId, additional=None):
         expIdStr = 'NA'
         existingStr = ''
     else:
-        expIdStr = "<a href='http://127.0.0.1:5000/exp_info/" + str(expId) + "'>" + str(expId) + "</a>"
-
+        # expIdStr = "<a href='http://127.0.0.1:5000/exp_info/" + str(expId) + "'>" + str(expId) + "</a>"
+        expIdStr = "<a href='%s'>" % url_for('.exp_info', expid=expId) + + str(expId) + "</a>"
         if isNewExp is True:
             existingStr = '(new)'
         else:
@@ -944,14 +944,16 @@ def ontology_info(term):
     return webpage
 
 
-def get_ontology_info(term):
+def get_ontology_info(term, show_ontology_tree=False):
     """
     get the information all studies containing an ontology term (exact or as parent)
     input:
     term : str
         the ontology term to look for
+    show_ontology_tree: bool, optional
+        if True, show the term tree graph using cytoscape.js
     """
-    # get the experiment annotations
+    # get the term annotations
     res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term, 'get_children': 'true'})
     if res.status_code != 200:
         msg = 'error getting annotations for ontology term %s: %s' % (Markup.escape(term), res.content)
@@ -968,6 +970,8 @@ def get_ontology_info(term):
     webPage = render_header(title='dbBact taxonomy')
     webPage += '<h1>Summary for ontology term: %s</h1>\n' % Markup.escape(term)
     webPage += 'Number of annotations with term: %d' % len(annotations)
+    if show_ontology_tree:
+        webPage += draw_term_info(term)
     webPage += '<h2>Annotations:</h2>'
     webPage += draw_annotation_details(annotations)
     webPage += render_template('footer.html')
@@ -2230,3 +2234,108 @@ def render_header(title='dbBact', alert_text=True, **kwargs):
 
     webPageTemp = render_template('header.html', header_color=get_dbbact_server_color(), title=title, alert_text=alert_text)
     return webPageTemp
+
+
+@Site_Main_Flask_Obj.route('/term_info/<string:term>')
+def draw_term_info(term):
+    """
+    get the information about a given term (either term name (i.e. 'feces' or term_id (i.e. 'gaz:000001')))
+
+    Parameters
+    ----------
+    term: str
+        the term_id (i.e. 'gaz:000001') to get the info about
+    show_ontology_tree: bool, optional
+        if True, draw the cytoscape.js ontology tree graph
+    """
+    rdata = {}
+    rdata['terms'] = [term]
+    rdata['relation'] = 'both'
+    if term is None:
+        return "Error: Invalid term"
+
+    debug(1, 'get term info for term %s' % term)
+    # get the experiment details
+    httpRes = requests.get(dbbact_server_address + '/ontology/get_family_graph', json=rdata)
+    if httpRes.status_code == 200:
+        termInfo = httpRes.json()['family']
+        if len(termInfo['nodes']) == 0:
+            return 'no results for term %s' % term
+        # get list of all parent terms
+        all_terms = []
+        for cnode in termInfo['nodes']:
+            if 'name' in cnode:
+                all_terms.append(cnode['name'])
+        # get the info about the number of annotations/experiments/sequences per term
+        rdata = {'terms': all_terms}
+        httpRes = requests.get(dbbact_server_address + '/ontology/get_term_stats', json=rdata)
+        if httpRes.status_code == 200:
+            term_counts = httpRes.json()['term_info']
+        else:
+            term_counts = {}
+
+        # create the node and edge data for the cytoscpae graph
+        nodes = ''
+        for cnode in termInfo['nodes']:
+            cnode = cnode.copy()
+            cnumexp = 1
+            cnumanno = 1
+            if 'name' in cnode:
+                if cnode['name'] in term_counts:
+                    cnumexp += term_counts[cnode['name']]['total_experiments']
+                    cnumanno += term_counts[cnode['name']]['total_annotations']
+            else:
+                cnode['name'] = 'NA'
+            if cnumexp > 50:
+                cnumexp = 50
+            cnode['num_exp'] = cnumexp
+            cnode['num_anno'] = cnumanno
+            print(cnode)
+            nodes += '{ data: %s},' % cnode
+        edges = ''
+        for cedge in termInfo['links']:
+            edges += '{ data: %s },' % cedge
+
+        return render_template('term_info_graph.html', term=term, nodes=nodes, edges=edges, node_link_url=url_for('.ontology_info', term=''))
+    return "term %s not found" % term
+
+
+@Site_Main_Flask_Obj.route('/download', methods=['POST', 'GET'])
+def download():
+    '''return a list of all the weekly database dump files available for download
+    '''
+    data_dir = os.path.join(current_app.root_path, 'data_dump')
+    onlyfiles = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f)) and f.endswith('.psql')]
+
+    webPage = render_header(title='Download')
+    # webPage += render_template('userinfo.html', userid=userid, name=name, username=username, desc=desc, email=email, total_annotations=total_annotations, total_experiments=total_experiments)
+    webPage += '''
+    <h1>dbBact snapshot download</h1>
+    Files are PostgreSQL 9.5.10 binary dumps.<br>
+    For locally installing the dbBact rest-api server, see documentation at: <a href='https://github.com/amnona/dbbact-server'>https://github.com/amnona/dbbact-server</a><br>
+    <div id="annot-table-div" class="tab-pane in active" style="margin-top: 20px; margin-bottom: 20px;">
+    <table id="annot-table" class="table responsive" style="width: 100%;">
+    <thead>
+      <tr>
+        <th>File Name</th>
+      </tr>
+    </thead>
+    <tbody>'''
+
+    for cfile in onlyfiles:
+        webPage += "<tr><td><a href='%s'>" % url_for('.get_file', filename=cfile) + cfile + "</a></td></tr>"
+    webPage += '''</tbody>
+    </table>
+    </div>'''
+
+    webPage += render_template('footer.html')
+    return webPage
+
+    return str(onlyfiles)
+
+
+@Site_Main_Flask_Obj.route('/get_file/<string:filename>', methods=['POST', 'GET'])
+def get_file(filename):
+    '''return a file from the data_dump directory.
+    '''
+    return send_from_directory('data_dump', filename, as_attachment=True)
