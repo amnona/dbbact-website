@@ -944,7 +944,7 @@ def ontology_info(term):
     return webpage
 
 
-def get_ontology_info(term, show_ontology_tree=True):
+def get_ontology_info(term, show_ontology_tree=False):
     """
     get the information all studies containing an ontology term (exact or as parent)
     input:
@@ -953,7 +953,7 @@ def get_ontology_info(term, show_ontology_tree=True):
     show_ontology_tree: bool, optional
         if True, show the term tree graph using cytoscape.js
     """
-    # get the experiment annotations
+    # get the term annotations
     res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term, 'get_children': 'true'})
     if res.status_code != 200:
         msg = 'error getting annotations for ontology term %s: %s' % (Markup.escape(term), res.content)
@@ -970,7 +970,8 @@ def get_ontology_info(term, show_ontology_tree=True):
     webPage = render_header(title='dbBact taxonomy')
     webPage += '<h1>Summary for ontology term: %s</h1>\n' % Markup.escape(term)
     webPage += 'Number of annotations with term: %d' % len(annotations)
-    webPage += draw_term_info(term)
+    if show_ontology_tree:
+        webPage += draw_term_info(term)
     webPage += '<h2>Annotations:</h2>'
     webPage += draw_annotation_details(annotations)
     webPage += render_template('footer.html')
@@ -2244,9 +2245,9 @@ def draw_term_info(term):
     ----------
     term: str
         the term_id (i.e. 'gaz:000001') to get the info about
+    show_ontology_tree: bool, optional
+        if True, draw the cytoscape.js ontology tree graph
     """
-    return ''
-
     rdata = {}
     rdata['terms'] = [term]
     rdata['relation'] = 'both'
