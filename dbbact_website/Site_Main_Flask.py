@@ -2322,6 +2322,7 @@ def download():
     </thead>
     <tbody>'''
 
+    onlyfiles.sort(reverse=True)
     for cfile in onlyfiles:
         webPage += "<tr><td><a href='%s'>" % url_for('.get_file', filename=cfile) + cfile + "</a></td></tr>"
     webPage += '''</tbody>
