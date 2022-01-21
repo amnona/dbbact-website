@@ -2305,7 +2305,7 @@ def download():
     '''return a list of all the weekly database dump files available for download
     '''
     data_dir = os.path.join(current_app.root_path, 'data_dump')
-    onlyfiles = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f)) and f.endswith('.psql')]
+    onlyfiles = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f)) and (f.endswith('.psql') or f.endswith('.txt'))]
 
     webPage = render_header(title='Download')
     # webPage += render_template('userinfo.html', userid=userid, name=name, username=username, desc=desc, email=email, total_annotations=total_annotations, total_experiments=total_experiments)
