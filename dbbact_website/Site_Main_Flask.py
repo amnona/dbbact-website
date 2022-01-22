@@ -2318,13 +2318,24 @@ def download():
     <thead>
       <tr>
         <th>File Name</th>
+        <th>Size</th>
       </tr>
     </thead>
     <tbody>'''
 
     onlyfiles.sort(reverse=True)
     for cfile in onlyfiles:
-        webPage += "<tr><td><a href='%s'>" % url_for('.get_file', filename=cfile) + cfile + "</a></td></tr>"
+        csize = os.stat(os.path.join(data_dir, cfile)).st_size
+        if csize < 1000:
+            csize_str = '%d Bytes' % csize
+        elif csize < 1000000:
+            csize_str = '%d KB' % (csize / 1000)
+        elif csize < 1000000000:
+            csize_str = '%d MB' % (csize / 1000000)
+        else:
+            csize_str = '%d GB' % (csize / 1000000000)
+
+        webPage += "<tr><td><a href='%s'>" % url_for('.get_file', filename=cfile) + cfile + "</a></td><td>%s</tr>" % csize_str
     webPage += '''</tbody>
     </table>
     </div>'''
