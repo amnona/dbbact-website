@@ -5,6 +5,7 @@ from io import TextIOWrapper
 import os
 import json
 import requests
+import re
 
 import matplotlib as mpl
 from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app
@@ -512,10 +513,20 @@ def sequence_annotations(sequence):
     sequence: str
         the sequences to look for (ACGT string)
     '''
-    rdata = {}
-    rdata['sequence'] = sequence
+
+    # first we check whether the sequence is in dbbact - if not, we'll try to trim it
+    trim_msg = None
+    found_seq = test_if_sequence_exists(sequence)
+
+    # if we didn't find any match, try to trim the sequence from known primers
+    if not found_seq:
+        trimmed, trim_msg = trim_primers_from_sequence(sequence)
+        if trimmed is not None:
+            sequence = trimmed
 
     # Get the taxonomy for the sequence
+    rdata = {}
+    rdata['sequence'] = sequence
     taxStr = "na"
     httpResTax = requests.get(dbbact_server_address + '/sequences/get_taxonomy_str', json=rdata)
     if httpResTax.status_code == requests.codes.ok:
@@ -2351,3 +2362,98 @@ def get_file(filename):
     '''return a file from the data_dump directory.
     '''
     return send_from_directory('data_dump', filename, as_attachment=True)
+
+
+def trim_primers_from_sequence(cseq, primers={'AGAGTTTGATC[AC]TGG[CT]TCAG': 'v1', 'CCTACGGG[ACGT][CGT]GC[AT][CG]CAG': 'v3', 'GTGCCAGC[AC]GCCGCGGTAA': 'v4'}, max_start=25, min_primer_len=10):
+    '''Try to trim primers from a given sequence and return the trimmed sequence if successful
+
+    assumes the sequence is not in dbBact.
+
+    Looks for V1/V3/V4 forward primers
+
+    Parameters
+    ----------
+    cseq: str
+        sequence to trim ('ACGT')
+    primers: dict of {primer(str): region_name(str)}, optional
+        the primers to test for
+    max_start: int, optional
+        maximal start position for the primer (i.e. do not return if primer starts after position max_start)
+    min_primer_len: int, optional
+        trim primers to keep only min_primer_len last chars
+
+    Returns
+    -------
+    trimmed: str or None
+        the trimmed sequence (str) if region identified
+        None if no region identified
+    msg: str
+        the information how the trimmed sequence was obtained
+    '''
+    # trim the primers if needed
+    if min_primer_len is not None:
+        new_primers = {}
+        for k, v in primers.items():
+            pos = len(k)
+            numchars = 0
+            newp = ''
+            while True:
+                if numchars >= min_primer_len:
+                    break
+                pos = pos - 1
+                if pos < 0:
+                    break
+                if k[pos] != ']':
+                    newp = k[pos] + newp
+                    numchars += 1
+                    continue
+                while k[pos] != '[':
+                    newp = k[pos] + newp
+                    pos = pos - 1
+                newp = k[pos] + newp
+                numchars += 1
+            new_primers[newp] = v
+        primers = new_primers
+
+    cseq = cseq.upper()
+
+    print('testing for primers in sequence')
+
+    # test for primers in the sequence
+    for cprimer in primers.keys():
+        ccseq = cseq[:max_start + len(cprimer)]
+        match = re.search(cprimer, ccseq)
+        if match is not None:
+            trimmed = cseq[match.end():]
+            return trimmed, 'found primer %s (region %s). trimmed first %d nucleotides.' % (cprimer, primers[cprimer], match.end())
+
+    # didn't find primer, so let's check if it seems to start after a few nucleotides with a known region sequence
+    for ctrim in range(10):
+        trimmed = cseq[ctrim + 1:]
+        if test_if_sequence_exists(trimmed):
+            return trimmed, 'Left trimmed first %d nucleotides' % (ctrim + 1)
+
+    return None, 'no region identified'
+
+
+def test_if_sequence_exists(seq, use_sequence_translator=True):
+    '''test if a sequence exists in dbBact (sequencesTable)
+
+    Parameters:
+    -----------
+    seq: str
+        the sequence to search for ('ACGT')
+
+    Returns:
+    --------
+    True if exists, False if doesn't exist
+    '''
+    rdata = {'sequence': seq, 'use_sequence_translator': use_sequence_translator}
+    httpResTax = requests.get(dbbact_server_address + '/sequences/getid', json=rdata)
+    if httpResTax.status_code == requests.codes.ok:
+        match_ids = httpResTax.json().get('seqId')
+        if match_ids is None:
+            return False
+        if len(match_ids) > 0:
+            return True
+    return False
