@@ -1,0 +1,52 @@
+<font face="arial" color="black" size="4">
+    
+    <table style="width:100%;margin-right:8px;margin-left:8px;">
+    <tr style="background-color:white"><td>
+    <h1>How to prepare sequences for dbBact querying</h1>
+    <h2>Sequence trimming</h2>
+dbBact uses 16S sequences from the V1, V3 or V4 variable regions. Sequences should start immediately after the end of the relevant region primer:<br>
+* V1: AGRGTTTGATYMTGGCTCAG <br>
+* V3: CCTACGGGNBGCWSCAG <br>
+* V4: GTGCCAGCMGCCGCGGTAA <br>
+<br>
+For example, given the sequence:<br>
+<span style="color:Tomato;">gctaactac</span>
+<span style="color:DodgerBlue;">gtgccagcagccgcggtaa</span>
+<span style="color:MediumSeaGreen;">TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCGAAGCAAGTCTGAAGTGAAAACCCAGGGCTCAACCCTGGGACTGCTTTGGAAACTGTTTTGCTAGAGTGTCGGAGAGGTAAGTGGAATTCCTAG</span><br>
+We should only use the sequence following the V4 primer (i.e. the green sequence following the blue primer sequence) for dbBact queries<br><br>
+NOTE:When querying the dbBact website with a single sequence, it automatically tries to trim primers if present in the sequence<br>
+<br>
+
+<h2>Query sequence length</h2>
+Sequences should be of length at least 100 nucleotides (but can be any length >100 as dbBact sequences shorter/longer than the query sequence will still be identified as match)<br>
+For example, the dbBact sequence:<br>
+TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCGAAGCAAGTCTGAAGTGAAAACCCAGGGCTCAACCCTGGGACTGCTTTGGAAACTGTTTTGCTAGAGTGTCGGAGAGGTA<br>
+Will be matched by the (shorter) query sequence:<br>
+TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCGAAGCAAGTCTGAAGTGAAAACCCAGGGCTCAACCCTGGGACTGCTTTGGAAACTGTTTTGCTAGAGTG<br>
+And by the (longer) query sequence:<br>
+TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCGAAGCAAGTCTGAAGTGAAAACCCAGGGCTCAACCCTGGGACTGCTTTGGAAACTGTTTTGCTAGAGTGTCGGAGAGGTAAGTGGAATTCCTAG<br>
+<br>
+
+<h2>Inter-region sequence matching</h2>
+dbBact uses the SILVA 16S dataset for inter-region sequence matching. If a query sequence is identical to a subsequence of a SILVA sequence, annotations regarding other regions of the SILVA sequence will also be identified.<br>
+For example, querying the V4 sequence:<br>
+TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCGAAGCAAGTCTGAAGTGAAAACCCAGGGCTCAACCCTGGGACTGCTTTGGAAACTGTTTTGCTAGAGTGTCGGAGAGGTAAGTGGAATTCCTAG<br>
+Matches the SILVA [clostridium] clostridioforme sequence (ID <a href="https://www.arb-silva.de/browser/ssu-138.1/kr364750">kr364750</a>)<br>
+This SILVA sequence contains the V3 sequence:<br>
+TGGGGAATATTGCACAATGGGCGAAAGCCTGATGCAGCGACGCCGCGTGAGTGAAGAAGTATTTCGGTATGTAAAGCTCTATCAGCAGGGAAGAAAATGACGGTACCTGACTAAGAAGCCCCGGCTAACTACGTGCCAGCAGCCGCGGTA<br>
+And therefore dbBact annotations matching this V3 sequence will also be obtained when querying using the V4 sequence.<br>
+<br>
+<h2>Additional requirements</h2>
+Sequences should contain only A/C/G/T<br><br>
+
+<h3>Additional questions? Please contact us: info AT dbbact DOT org</h3>
+
+
+    </td></tr>
+    </table>
+
+
+</font>
+    
+</body>    
+</html>
