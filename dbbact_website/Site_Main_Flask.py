@@ -515,14 +515,17 @@ def sequence_annotations(sequence):
     '''
 
     # first we check whether the sequence is in dbbact - if not, we'll try to trim it
-    trim_msg = None
+    trim_msg = ''
     found_seq = test_if_sequence_exists(sequence)
+    show_trim_msg = False
 
     # if we didn't find any match, try to trim the sequence from known primers
     if not found_seq:
+        show_trim_msg = True
         trimmed, trim_msg = trim_primers_from_sequence(sequence)
         if trimmed is not None:
             sequence = trimmed
+            found_seq = True
 
     # Get the taxonomy for the sequence
     rdata = {}
@@ -566,6 +569,13 @@ def sequence_annotations(sequence):
     webPage = render_header(title='dbBact sequence annotation')
     webPage += render_template('seqinfo.html', sequence=sequence.upper(), taxonomy=taxStr, species_details=species_details, num_species_match=num_species_match)
 
+    if show_trim_msg:
+        if found_seq:
+            webPage += '<h2>Sequence found after trimming primers: %s</h2>' % trim_msg
+            webPage += '<a href=%s target="_blank">Click here</a> for details how to prepare your 16S sequence for querying dbBact<br>' % (url_for('.faq_prepare_sequences'))
+        else:
+            pass
+
     # Get the annotations for the sequence
     httpRes = requests.get(dbbact_server_address + '/sequences/get_annotations', json=rdata)
     if httpRes.status_code != requests.codes.ok:
@@ -589,7 +599,7 @@ def render_sequence_annotations(annotations):
     if len(annotations) == 0:
         webPage += '<br><br><h1>No annotations for sequence found in dbBact</h1>'
         webPage += '<h2>Are you using >100bp sequences?</h2>'
-        webPage += 'Note dbBact can identify V12 / V34 / V4 sequences (without the primers), or SILVA ids<br>'
+        webPage += '<h2><br><a href=%s target="_blank">Click here</a> for details how to prepare your 16S sequence for querying dbBact</h2>' % (url_for('.faq_prepare_sequences'))
     else:
         for cannotation in annotations:
             cannotation['website_sequences'] = [0]
@@ -827,6 +837,8 @@ def annotation_info(annotationid):
 
     if len(annotation['flags']) > 0:
         webPage += list_flags(annotation['flags'])
+    else:
+        webPage += '<br>Annotation not flagged as potentially problematic<br>'
 
     webPage += draw_flag_annotation_button(annotationid)
 
@@ -897,7 +909,7 @@ def draw_flag_annotation_button(annotationid):
 def annotation_flag(annotationid):
     '''webpage used to request input from the user to flag an annotation'''
     webpage = render_header()
-    webpage += render_template('annotation_flag.html', annotationid=annotationid)
+    webpage += render_template('annotation_flag.html', annotationid=annotationid, back_addr=url_for('.annotation_info', annotationid=annotationid))
     webpage += render_template('footer.html', header_color=get_dbbact_server_color())
     return webpage
 
@@ -917,7 +929,8 @@ def annotation_flag_submit():
     if httpRes.status_code == 200:
         webpage = render_header(title='Password Recovery')
         webpage += 'Annotation %s has been flagged and will be reviewed by the dbbact team<br>' % annotationid
-        webpage += 'Thank you for your input'
+        webpage += 'Thank you for your input<br><br>'
+        webpage += '<a href=%s>Back to annotation %d details</a>' % (annotationid, url_for('.annotation_info', annotationid=annotationid))
     else:
         webpage = render_template('done_fail.html', mes='Failed to flag annotation', error=httpRes.text)
 
@@ -2357,6 +2370,13 @@ def download():
     return str(onlyfiles)
 
 
+@Site_Main_Flask_Obj.route('/faq_prepare_sequences', methods=['POST', 'GET'])
+def faq_prepare_sequences():
+    webpage = render_header(title='Preparing sequences for dbBact query')
+    webpage += render_template('prepare_sequences.html')
+    return webpage
+
+
 @Site_Main_Flask_Obj.route('/get_file/<string:filename>', methods=['POST', 'GET'])
 def get_file(filename):
     '''return a file from the data_dump directory.
@@ -2431,7 +2451,7 @@ def trim_primers_from_sequence(cseq, primers={'AGAGTTTGATC[AC]TGG[CT]TCAG': 'v1'
     for ctrim in range(10):
         trimmed = cseq[ctrim + 1:]
         if test_if_sequence_exists(trimmed):
-            return trimmed, 'Left trimmed first %d nucleotides' % (ctrim + 1)
+            return trimmed, 'Left-trimmed first %d nucleotides' % (ctrim + 1)
 
     return None, 'no region identified'
 
