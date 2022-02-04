@@ -2531,7 +2531,6 @@ def get_term_seq_scores(term, annotations=None, num_to_show=10):
     for cannotation in annotations:
         term_context = None
         cannotation_id = str(cannotation['annotationid'])
-        print(cannotation_id)
         details = cannotation['details']
         for cdetail in details:
             cterm = cdetail[1]
@@ -2620,9 +2619,11 @@ def get_term_seq_scores(term, annotations=None, num_to_show=10):
     fscore_common = defaultdict(float)
     for cseq in seqs:
         if recall_low[cseq] + precision_low[cseq] > 0:
-            fscore_low[cseq] = 2 * (recall_low[cseq] * precision_low[cseq]) / (recall_low[cseq] + precision_low[cseq])
+            # fscore_low[cseq] = 2 * (recall_low[cseq] * precision_low[cseq]) / (recall_low[cseq] + precision_low[cseq])
+            fscore_low[cseq] = recall_low[cseq]
         if recall_high[cseq] + precision_high[cseq] > 0:
-            fscore_high[cseq] = 2 * (recall_high[cseq] * precision_high[cseq]) / (recall_high[cseq] + precision_high[cseq])
+            # fscore_high[cseq] = 2 * (recall_high[cseq] * precision_high[cseq]) / (recall_high[cseq] + precision_high[cseq])
+            fscore_high[cseq] = recall_high[cseq]
         if recall_common[cseq] + precision_common[cseq] > 0:
             fscore_common[cseq] = 2 * (recall_common[cseq] * precision_common[cseq]) / (recall_common[cseq] + precision_common[cseq])
 
