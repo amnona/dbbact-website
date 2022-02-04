@@ -968,7 +968,7 @@ def ontology_info(term):
     return webpage
 
 
-def get_ontology_info(term, show_ontology_tree=False):
+def get_ontology_info(term, show_ontology_tree=False, show_associated_seqs=True):
     """
     get the information all studies containing an ontology term (exact or as parent)
     input:
@@ -976,6 +976,8 @@ def get_ontology_info(term, show_ontology_tree=False):
         the ontology term to look for
     show_ontology_tree: bool, optional
         if True, show the term tree graph using cytoscape.js
+    show_associated_seq: bool, optional
+        if True, show the top term positive/negative-associated sequences
     """
     # get the term annotations
     res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term, 'get_children': 'true'})
@@ -993,7 +995,11 @@ def get_ontology_info(term, show_ontology_tree=False):
 
     webPage = render_header(title='dbBact taxonomy')
     webPage += '<h1>Summary for ontology term: %s</h1>\n' % Markup.escape(term)
-    webPage += 'Number of annotations with term: %d' % len(annotations)
+    webPage += 'Number of annotations with term: %d<br>' % len(annotations)
+
+    # plot the top positive/negative associated sequences with the term
+    webPage += get_term_seq_scores(term, annotations)
+
     if show_ontology_tree:
         webPage += draw_term_info(term)
     webPage += '<h2>Annotations:</h2>'
@@ -1334,7 +1340,6 @@ def get_silva_info(silva_str):
         debug(6, msg)
         return msg, msg
 
-    print(res.json())
     annotations = res.json().get('annotations')
 
     if len(annotations) == 0:
@@ -1345,10 +1350,8 @@ def get_silva_info(silva_str):
 
     # get the matching dbbact sequences for the silva id
     res = requests.get(get_dbbact_server_address() + '/sequences/getid', json={'sequence': silva_str, 'dbname': 'silva'})
-    print(res.json())
     ids = res.json().get('seqId')
     res = requests.get(get_dbbact_server_address() + '/sequences/get_info', json={'seqids': ids})
-    print(res.json())
 
     silva_seq_strs = [x['seq'] for x in res.json()['sequences']]
     silva_seq_tax = [x['taxonomy'] for x in res.json()['sequences']]
@@ -2314,7 +2317,6 @@ def draw_term_info(term):
                 cnumexp = 50
             cnode['num_exp'] = cnumexp
             cnode['num_anno'] = cnumanno
-            print(cnode)
             nodes += '{ data: %s},' % cnode
         edges = ''
         for cedge in termInfo['links']:
@@ -2437,8 +2439,6 @@ def trim_primers_from_sequence(cseq, primers={'AGAGTTTGATC[AC]TGG[CT]TCAG': 'v1'
 
     cseq = cseq.upper()
 
-    print('testing for primers in sequence')
-
     # test for primers in the sequence
     for cprimer in primers.keys():
         ccseq = cseq[:max_start + len(cprimer)]
@@ -2477,3 +2477,221 @@ def test_if_sequence_exists(seq, use_sequence_translator=True):
         if len(match_ids) > 0:
             return True
     return False
+
+
+def get_term_seq_scores(term, annotations=None, num_to_show=10):
+    '''Calculate the F-score for all sequences in dbBact that are associated with the term
+
+    Parameters
+    ----------
+    term: str
+        the dbBact term
+    annotations: list of dict or None, optional
+        if not None, the dbBact annotations containing the term.
+        if None, the function will query dbBact for the term annotations
+    num_to_show: int, optional
+        the max number of top positive/negative associations to plot
+
+    Returns
+    -------
+    part of webpage with top positive/negative associated sequences
+    '''
+    # get all the child terms for the term of interest (so we can test each annotation positive/negative also for them)
+    term = term.lower()
+    res = requests.get(get_dbbact_server_address() + '/ontology/get_term_children', json={'term': term, 'only_annotated': 'true'})
+    children = set(res.json()['terms'].values())
+    debug(2, 'found %d children terms (including main term) with annotations for term %s' % (len(children), term))
+
+    if annotations is None:
+        res = requests.get(get_dbbact_server_address() + '/ontology/get_annotations', params={'term': term, 'get_children': 'true'})
+        if res.status_code != 200:
+            msg = 'error getting annotations for ontology term %s: %s' % (Markup.escape(term), res.content)
+            debug(6, msg)
+            return msg, msg
+        annotations = res.json()['annotations']
+
+    if len(annotations) == 0:
+        debug(1, 'ontology term %s not found' % Markup.escape(term))
+        return 'term not found', 'term not found'
+
+    annotation_ids = [x['annotationid'] for x in annotations]
+
+    # get the sequences for each annotation
+    res = requests.get(get_dbbact_server_address() + '/annotations/get_list_sequences', json={'annotation_ids': annotation_ids})
+    if res.status_code != 200:
+        msg = 'error getting annotation sequences for ontology term %s: %s' % (Markup.escape(term), res.content)
+        debug(6, msg)
+        return msg, msg
+    annotation_seqs = res.json()['annotation_seqs']
+
+    # divide the annotations into positive correlation (COMMON/HIGH/DOMINANT) and negative correlation (LOW) with the term
+    annotation_seqs_low = {}
+    annotation_seqs_high = {}
+    annotation_seqs_common = {}
+    for cannotation in annotations:
+        term_context = None
+        cannotation_id = str(cannotation['annotationid'])
+        print(cannotation_id)
+        details = cannotation['details']
+        for cdetail in details:
+            cterm = cdetail[1]
+            # does this annotation detail contain the term or one of it's children?
+            if cterm not in children:
+                continue
+            ctype = cdetail[0]
+            if ctype == 'low':
+                term_context = 'low'
+                break
+            elif ctype == 'high':
+                term_context = 'high'
+                break
+            elif ctype == 'all':
+                term_context = 'all'
+            else:
+                term_context = 'other'
+
+        if term_context is None:
+            debug(6, 'term %s does not appear in any context in annotation %s' % (term, cannotation_id))
+            continue
+        if term_context == 'low':
+            annotation_seqs_low[cannotation_id] = annotation_seqs[cannotation_id]
+        if term_context == 'high':
+            annotation_seqs_high[cannotation_id] = annotation_seqs[cannotation_id]
+        if term_context in ['high', 'all']:
+            annotation_seqs_common[cannotation_id] = annotation_seqs[cannotation_id]
+
+    seq_annotations_low = defaultdict(list)
+    seq_annotations_high = defaultdict(list)
+    seq_annotations_common = defaultdict(list)
+    seqs = set()
+    for cannotation_id, cseqlist in annotation_seqs_low.items():
+        for cseq in cseqlist:
+            seq_annotations_low[cseq].append(cannotation_id)
+        seqs.update(cseqlist)
+    for cannotation_id, cseqlist in annotation_seqs_high.items():
+        for cseq in cseqlist:
+            seq_annotations_high[cseq].append(cannotation_id)
+        seqs.update(cseqlist)
+    for cannotation_id, cseqlist in annotation_seqs_common.items():
+        for cseq in cseqlist:
+            seq_annotations_common[cseq].append(cannotation_id)
+        seqs.update(cseqlist)
+
+    # get the total number of annotations per sequence
+    seqlist = list(seqs)
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_info', json={'seqids': seqlist})
+    if res.status_code != 200:
+        msg = 'failed getting number of annotations per sequence'
+        debug(6, msg)
+        return msg
+    seq_info = res.json()['sequences']
+
+    tot_seq_annotations = {}
+    for idx, cdat in enumerate(seq_info):
+        tot_seq_annotations[seqlist[idx]] = cdat['total_annotations']
+
+    res = requests.get(get_dbbact_server_address() + '/ontology/get_term_stats', json={'terms': [term, '-' + term]})
+    if res.status_code != 200:
+        msg = 'failed getting term %s stats' % term
+        debug(6, msg)
+        return msg
+    res = res.json()['term_info']
+    num_term_annotations_high = res[term]['total_annotations']
+    num_term_annotations_low = res['-' + term]['total_annotations']
+
+    precision_low = {}
+    precision_high = {}
+    precision_common = {}
+    for cseq in seqs:
+        precision_low[cseq] = len(seq_annotations_low[cseq]) / (tot_seq_annotations[cseq] + 1)
+        precision_high[cseq] = len(seq_annotations_high[cseq]) / (tot_seq_annotations[cseq] + 1)
+        precision_common[cseq] = len(seq_annotations_common[cseq]) / (tot_seq_annotations[cseq] + 1)
+
+    recall_low = {}
+    recall_high = {}
+    recall_common = {}
+    for cseq in seqs:
+        recall_low[cseq] = len(seq_annotations_low[cseq]) / (num_term_annotations_low + 1)
+        recall_high[cseq] = len(seq_annotations_high[cseq]) / (num_term_annotations_high + 1)
+        recall_common[cseq] = len(seq_annotations_common[cseq]) / (num_term_annotations_high + 1)
+
+    fscore_low = defaultdict(float)
+    fscore_high = defaultdict(float)
+    fscore_common = defaultdict(float)
+    for cseq in seqs:
+        if recall_low[cseq] + precision_low[cseq] > 0:
+            fscore_low[cseq] = 2 * (recall_low[cseq] * precision_low[cseq]) / (recall_low[cseq] + precision_low[cseq])
+        if recall_high[cseq] + precision_high[cseq] > 0:
+            fscore_high[cseq] = 2 * (recall_high[cseq] * precision_high[cseq]) / (recall_high[cseq] + precision_high[cseq])
+        if recall_common[cseq] + precision_common[cseq] > 0:
+            fscore_common[cseq] = 2 * (recall_common[cseq] * precision_common[cseq]) / (recall_common[cseq] + precision_common[cseq])
+
+    sfscore_high = {}
+    sfscore_low = {}
+    sfscore_common = {}
+    for idx, cseq in enumerate(seqlist):
+        sfscore_high[idx] = fscore_high[cseq]
+        sfscore_low[idx] = fscore_low[cseq]
+        sfscore_common[idx] = fscore_common[cseq]
+
+    sorted_f_high = sorted(sfscore_high.items(), key=lambda kv: kv[1], reverse=True)
+    sorted_f_low = sorted(sfscore_low.items(), key=lambda kv: kv[1], reverse=True)
+    sorted_f_common = sorted(sfscore_common.items(), key=lambda kv: kv[1], reverse=True)
+
+    seq_info_high = []
+    for cpos in range(min([num_to_show, len(sorted_f_high)])):
+        cidx, cscore = sorted_f_high[cpos]
+        seq_info[cidx]['fscore_high'] = cscore
+        seq_info_high.append(seq_info[cidx])
+
+    seq_info_low = []
+    for cpos in range(min([num_to_show, len(sorted_f_low)])):
+        cidx, cscore = sorted_f_low[cpos]
+        seq_info[cidx]['fscore_low'] = cscore
+        seq_info_low.append(seq_info[cidx])
+
+    seq_info_common = []
+    for cpos in range(min([num_to_show, len(sorted_f_common)])):
+        cidx, cscore = sorted_f_common[cpos]
+        seq_info[cidx]['fscore_common'] = cscore
+        seq_info_common.append(seq_info[cidx])
+
+    return draw_highlow_sequences_info(seqinfo_high=seq_info_high, seqinfo_low=seq_info_low, seqinfo_common=seq_info_common)
+
+
+def draw_highlow_sequences_info(seqinfo_high, seqinfo_low, seqinfo_common):
+    '''write the table entries for each sequence (sequence, total counts etc.)
+    '''
+    # webPage = render_template('header.html')
+    datalow = ''
+    for cseqinfo in seqinfo_low:
+        if cseqinfo['fscore_low'] == 0:
+            continue
+        cseqinfo['seq'] = cseqinfo['seq'].upper()
+        datalow += "<tr>"
+        datalow += '<td>' + cseqinfo['taxonomy'] + '</td>'
+        datalow += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
+        datalow += '<td>' + '%f' % cseqinfo['fscore_low'] + '</td><tr>'
+
+    datahigh = ''
+    for cseqinfo in seqinfo_high:
+        if cseqinfo['fscore_high'] == 0:
+            continue
+        cseqinfo['seq'] = cseqinfo['seq'].upper()
+        datahigh += "<tr>"
+        datahigh += '<td>' + cseqinfo['taxonomy'] + '</td>'
+        datahigh += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
+        datahigh += '<td>' + '%f' % cseqinfo['fscore_high'] + '</td><tr>'
+
+    datacommon = ''
+    for cseqinfo in seqinfo_common:
+        if cseqinfo['fscore_common'] == 0:
+            continue
+        cseqinfo['seq'] = cseqinfo['seq'].upper()
+        datacommon += "<tr>"
+        datacommon += '<td>' + cseqinfo['taxonomy'] + '</td>'
+        datacommon += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
+        datacommon += '<td>' + '%f' % cseqinfo['fscore_common'] + '</td><tr>'
+
+    webPage = render_template('seqlist-highlow.html', datalow=datalow, datahigh=datahigh, datacommon=datacommon)
+    return webPage
