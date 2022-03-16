@@ -102,15 +102,22 @@
         //remove spaces
         searchTbId.value = searchTbId.value.trim();
          
-        loadingFunc(); 
+        loadingFunc();
         return true;
-    }       
-        
+    }
+
+    // the working animation when waiting for search results
     function loadingFunc(){
         document.getElementById("divContId").style.display = "none";
         document.getElementById("divWaitId").style.display = "block";
-    }//preloader
-        
+    }
+
+    // reset the animation and show the main window if page is loaded (i.e. when pressing the back button)
+    $(window).bind("pageshow", function(event) {
+        document.getElementById("divContId").style.display = "initial";
+        document.getElementById("divWaitId").style.display = "none";
+    });
+
     </script>
   </head>
   <body>
@@ -131,8 +138,8 @@
 
     <div id="divWaitId" style="display: none; cursor: wait;">
         <img style="position: absolute;top: 50%;left: 50%;width: 200px;height: 200px;margin-top: -100px;margin-left: -100px;" src='static/loading.gif'>        
-    </div>                      
-    </div>                    
+    </div>
+    </div>
     <div id="divContId">
   
     <table style="padding:0;width:100%;background-color:{{header_color|default('#006e98', true)}};margin-right:8px;margin-left:8px;">
@@ -258,11 +265,11 @@
             <td colspan="8" colspan="3">
             <center>
               Or click
-              <a onclick="loadingFunc();" href='search_results?sequence=TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCGAAGCAAGTCTGAAGTGAAAACCCAGGGCTCAACCCTGGGACTGCTTTGGAAACTGTTTTGCTAGAGTGTCGGAGAGGTAAGTGGAATTCCTAG'><u>here</u></a>
+              <a onclick="loadingFunc();" href='search_results?sequence=TACGTATGGAGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCAGGGCAAGTCTGATGTGAAAACCCGGGGCTCAACCCCGGGACTGCATTGGAAACTGTCCGGCTGGAGTGCAGGAGAGGTAAGTGGAATTCCTAG'><u>here</u></a>
               , 
-              <a onclick="loadingFunc();" href='search_results?sequence=TACGTAGGTGGCAAGCGTTGTCCGGATTTATTGGGCGTAAAGCGAGCGCAGGCGGAAAAATAAGTCTAATGTGAAAGCCCTCGGCTTAACCGAGGAACTGCATCGGAAACTGTTTTTCTTGAGTGCAGAAGAGGAGAGTGGAACTCCATG'><u>here</u></a>
+              <a onclick="loadingFunc();" href='search_results?sequence=TACGGAGGGTGCAAGCGTTGTCCGGATTTATTGGGTTTAAAGGGTGCGTAGGCGGCTTTTTAAGTCTGGGGTGAAAGCCCGTTGCTCAACAACGGAACTGCCCTGGAAACTGGAGAGCTTGAGTACAGACGAGGGTGGCGGAATGGACGG'><u>here</u></a>
               or 
-              <a onclick="loadingFunc();" href='search_results?sequence=TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCTTTGCAAGTCTGACGTGAAACTCCGGGGCTCAACTCCGGAACTGCGTTGGAAACTGTAAGGCTTGAGTGCCGGAGAGGTAAGCGGAATTCCTAG'><u>here</u></a>
+              <a onclick="loadingFunc();" href='search_results?sequence=TACGTAGGGGGCAAGCGTTATCCGGATTTACTGGGTGTAAAGGGAGCGTAGACGGCGAAGCAAGTCTGAAGTGAAAACCCAGGGCTCAACCCTGGGACTGCTTTGGAAACTGTTTTGCTAGAGTGTCGGAGAGGTAAGTGGAATTCCTAG'><u>here</u></a>
               for an example
             </center>
             </td>
