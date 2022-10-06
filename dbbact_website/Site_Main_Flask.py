@@ -386,6 +386,7 @@ def enrichment_results():
     # webpage = render_template('info_header.html')
     for term_type in ['term', 'annotation']:
         webpage += "<h2>%s enrichment</h2>" % term_type
+        webpage += '(negative (red) LOWER in fasta file 1, positive (blue) HIGHER in fasta file 1) '
         webpage += render_template('enrichment_results.html')
         debug(2, 'looking for enriched %s' % term_type)
         err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type)
