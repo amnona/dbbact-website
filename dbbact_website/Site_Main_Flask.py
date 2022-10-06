@@ -336,7 +336,10 @@ def enrichment_results():
             print(file1)
             # textfile1 = file1.read()
             # print(textfile1)
-            textfile1 = TextIOWrapper(file1._file)
+            if hasattr(file1, '_file'):
+                textfile1 = TextIOWrapper(file1._file)
+            else:
+                textfile1 = TextIOWrapper(file1)
             seqs1 = get_fasta_seqs(textfile1)
             if seqs1 is None:
                 webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
@@ -359,7 +362,10 @@ def enrichment_results():
         if 'seqs2' in request.files:
             debug(1, 'Fasta file uploaded, processing it')
             file2 = request.files['seqs2']
-            textfile2 = TextIOWrapper(file2._file)
+            if hasattr(file2, '_file'):
+                textfile2 = TextIOWrapper(file2._file)
+            else:
+                textfile2 = TextIOWrapper(file2)
             seqs2 = get_fasta_seqs(textfile2)
             if seqs2 is None:
                 webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file2 not recognized as fasta')
