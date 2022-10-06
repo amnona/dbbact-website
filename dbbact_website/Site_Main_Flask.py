@@ -333,7 +333,10 @@ def enrichment_results():
         if 'seqs1' in request.files:
             debug(1, 'Fasta file uploaded, processing it')
             file1 = request.files['seqs1']
-            textfile1 = TextIOWrapper(file1)
+            print(file1)
+            # textfile1 = file1.read()
+            # print(textfile1)
+            textfile1 = TextIOWrapper(file1._file)
             seqs1 = get_fasta_seqs(textfile1)
             if seqs1 is None:
                 webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
@@ -349,13 +352,14 @@ def enrichment_results():
             if seqs1 is None:
                 webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
                 return(webPageTemp, 400)
+    debug(2, 'Loaded %d sequences for seqs1 file' % len(seqs1))
 
     # second file
     if exampleStr != 'true':
         if 'seqs2' in request.files:
             debug(1, 'Fasta file uploaded, processing it')
             file2 = request.files['seqs2']
-            textfile2 = TextIOWrapper(file2)
+            textfile2 = TextIOWrapper(file2._file)
             seqs2 = get_fasta_seqs(textfile2)
             if seqs2 is None:
                 webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file2 not recognized as fasta')
@@ -370,13 +374,16 @@ def enrichment_results():
             if seqs2 is None:
                 webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Uploaded file1 not recognized as fasta')
                 return(webPageTemp, 400)
+    debug(2, 'Loaded %d sequences for seqs2 file' % len(seqs2))
 
     webpage = render_header()
     # webpage = render_template('info_header.html')
     for term_type in ['term', 'annotation']:
         webpage += "<h2>%s enrichment</h2>" % term_type
         webpage += render_template('enrichment_results.html')
+        debug(2, 'looking for enriched %s' % term_type)
         err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type)
+        debug(2, 'found %d enriched' % len(terms))
         if err:
             webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str=err)
             return(webPageTemp, 400)
@@ -998,7 +1005,8 @@ def get_ontology_info(term, show_ontology_tree=False, show_associated_seqs=True)
     webPage += 'Number of annotations with term: %d<br>' % len(annotations)
 
     # plot the top positive/negative associated sequences with the term
-    webPage += get_term_seq_scores(term, annotations)
+    if show_associated_seqs:
+        webPage += get_term_seq_scores(term, annotations)
 
     if show_ontology_tree:
         webPage += draw_term_info(term)
@@ -2595,6 +2603,10 @@ def get_term_seq_scores(term, annotations=None, num_to_show=10):
         debug(6, msg)
         return msg
     res = res.json()['term_info']
+    if term not in res:
+        msg = 'get_term_stats failed for term %s' % term
+        debug(6, msg)
+        return msg
     num_term_annotations_high = res[term]['total_annotations']
     num_term_annotations_low = res['-' + term]['total_annotations']
 

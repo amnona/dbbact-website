@@ -59,6 +59,7 @@ def getannotationstrings2(cann):
 
 
 def get_seq_annotations_fast(sequences):
+    debug(2, 'get_seq_annotations_fast for %d sequences' % len(sequences))
     rdata = {}
     rdata['sequences'] = sequences
     res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations', json=rdata)
@@ -66,6 +67,7 @@ def get_seq_annotations_fast(sequences):
         debug(5, 'error getting fast annotations for sequence list')
         return None, None, None
     res = res.json()
+    debug(2, 'got %d total annotations' % len(res['annotations']))
 
     sequence_terms = {}
     sequence_annotations = {}
@@ -87,16 +89,19 @@ def get_seq_annotations_fast(sequences):
                         sequence_terms[cseq].append('-' + cterm)
 
     annotations = res['annotations']
+
     # replace the string in the key with an int (since in json key is always str)
     keys = list(annotations.keys())
     for cid in keys:
         annotations[int(cid)] = annotations.pop(cid)
 
+    # count total associations
     total_annotations = 0
     for cseq_annotations in sequence_annotations.values():
         total_annotations += len(cseq_annotations)
-    debug(2, 'Got %d annotations' % total_annotations)
-    return sequence_terms, sequence_annotations, res['annotations']
+    debug(2, 'Got %d associations' % total_annotations)
+
+    return sequence_terms, sequence_annotations, annotations
 
 
 def _get_term_features(features, feature_terms):
@@ -221,14 +226,14 @@ def get_annotation_term_counts(annotations):
 
 def enrichment(seqs1, seqs2, term_type="term"):
     '''
-    Do dbbact term and annotation enrichment analysis for 2 fasta files
+    Do dbbact term and annotation enrichment analysis for 2 lists of sequences (comparing first to second list of sequences)
 
     Parameters
     ----------
-    fasta1 : str
-        name of first fasta file
-    fasta2 : str
-        name of second fasta file (can also contain sequences from fasta1 - it is the background file)
+    seqs1:list of str
+        first set of sequences (ACGT)
+    seqs1:list of str
+        second set of sequences (ACGT)
     term_type : str (optional)
         type of the term to analyze for enrichment. can be:
         "term" : analyze the terms per annotation (not including parent terms)
@@ -260,12 +265,17 @@ def enrichment(seqs1, seqs2, term_type="term"):
     info['sequence_terms'], info['sequence_annotations'], info['annotations'] = get_seq_annotations_fast(all_seqs)
 
     if term_type == 'term':
+        debug(2, 'getting all_term counts')
         feature_terms = _get_all_term_counts(all_seqs, info['sequence_annotations'], info['annotations'])
     elif term_type == 'annotation':
+        debug(2, 'getting all_annotation string counts')
         feature_terms = _get_all_annotation_string_counts(all_seqs, info['sequence_annotations'], info['annotations'])
     else:
         debug(8, 'strange term_type encountered: %s' % term_type)
+
+    debug(2, 'getting seqs1 feature array')
     feature_array, term_list = _get_term_features(seqs1, feature_terms)
+    debug(2, 'getting seqs2 feature array')
     bg_array, term_list = _get_term_features(seqs2, feature_terms)
 
     all_feature_array = np.hstack([feature_array, bg_array])
@@ -273,6 +283,7 @@ def enrichment(seqs1, seqs2, term_type="term"):
     labels = np.zeros(all_feature_array.shape[1])
     labels[:feature_array.shape[1]] = 1
 
+    debug(2, 'starting dsfdr for enrichment')
     keep, odif, pvals = dsfdr(all_feature_array, labels, method='meandiff', transform_type=None, alpha=0.1, numperm=1000, fdr_method='dsfdr')
     keep = np.where(keep)[0]
     if len(keep) == 0:
