@@ -273,6 +273,7 @@ def enrichment(seqs1, seqs2, term_type="term"):
     else:
         debug(8, 'strange term_type encountered: %s' % term_type)
 
+    debug(2, 'found %d terms associated with all sequences (%d)' % (len(feature_terms), len(all_seqs)))
     debug(2, 'getting seqs1 feature array')
     feature_array, term_list = _get_term_features(seqs1, feature_terms)
     debug(2, 'getting seqs2 feature array')
