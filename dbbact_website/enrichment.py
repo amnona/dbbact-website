@@ -162,6 +162,21 @@ def _get_all_annotation_string_counts(features, sequence_annotations, annotation
 
 
 def _get_all_term_counts(features, feature_annotations, annotations):
+    '''Get counts of all terms associated with each feature
+
+    Parameters
+    ----------
+    features: list of str
+        the sequences to get the terms for
+    feature_annotations: dict of {feature (str): annotationIDs (list of int))
+        the list of annotations each feature appears in
+    annotations: dict of {annotationsid (int): annotation details (dict)}
+        all the annotations in the experiment
+
+    Returns
+    -------
+    dict of {feature (str): annotation counts (list of (term(str), count(int)))}
+    '''
     feature_terms = {}
     for cfeature in features:
         annotation_list = [annotations[x] for x in feature_annotations[cfeature]]
@@ -272,8 +287,12 @@ def enrichment(seqs1, seqs2, term_type="term"):
         feature_terms = _get_all_annotation_string_counts(all_seqs, info['sequence_annotations'], info['annotations'])
     else:
         debug(8, 'strange term_type encountered: %s' % term_type)
-
-    debug(2, 'found %d terms associated with all sequences (%d)' % (len(feature_terms), len(all_seqs)))
+    # count the total number of terms
+    all_terms_set = set()
+    for cterms in feature_terms.values():
+        for (cterm, ccount) in cterms:
+            all_terms_set.add(cterm)
+    debug(2, 'found %d terms associated with all sequences (%d)' % (len(all_terms_set), len(all_seqs)))
     debug(2, 'getting seqs1 feature array')
     feature_array, term_list = _get_term_features(seqs1, feature_terms)
     debug(2, 'getting seqs2 feature array')
