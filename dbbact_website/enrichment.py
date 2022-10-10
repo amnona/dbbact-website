@@ -278,6 +278,7 @@ def enrichment(seqs1, seqs2, term_type="term"):
     debug(2, 'getting seqs2 feature array')
     bg_array, term_list = _get_term_features(seqs2, feature_terms)
 
+    debug(2, 'bgarray: %s, feature_array: %s' % (bg_array.shape, feature_array.shape))
     all_feature_array = np.hstack([feature_array, bg_array])
 
     labels = np.zeros(all_feature_array.shape[1])
