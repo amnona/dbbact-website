@@ -6,6 +6,54 @@ from .utils import debug, get_dbbact_server_address
 from collections import defaultdict
 
 
+def calour_enrichment(seqs1, seqs2, term_type="term"):
+    '''
+    Do dbbact term and annotation enrichment analysis for 2 lists of sequences (comparing first to second list of sequences)
+
+    Parameters
+    ----------
+    seqs1:list of str
+        first set of sequences (ACGT)
+    seqs1:list of str
+        second set of sequences (ACGT)
+    term_type : str (optional)
+        type of the term to analyze for enrichment. can be:
+        "term" : analyze the terms per annotation (not including parent terms)
+        "annotation" : analyze the annotations associated with each sequence
+
+    Returns
+    -------
+    err : str
+        empty if ok, otherwise the error encountered
+    term_list : list of str
+        the terms which are enriched
+    pvals : list of float
+        the p-value for each term
+    odif : list of float
+        the effect size for each term
+    '''
+    import calour as ca
+
+    db = ca.database._get_database_class('dbbact')
+
+    # set the same seed (since we use a random permutation test)
+    np.random.seed(2018)
+
+    all_seqs = set(seqs1).union(set(seqs2))
+    seqs2 = list(all_seqs - set(seqs1))
+    if len(seqs2) == 0:
+        return 'No sequences remaining in background fasta after removing the sequences of interest', None, None, None
+    all_seqs = list(all_seqs)
+
+    # get the annotations for the sequences
+    info = {}
+    info['sequence_terms'], info['sequence_annotations'], info['annotations'] = get_seq_annotations_fast(all_seqs)
+
+    terms_df, resmat, features_df = db.db.term_enrichment(seqs1, seqs2, info['annotations'], info['sequence_annotations'], term_type=term_type)
+    print(terms_df)
+    return '', terms_df['feature'].values, terms_df['qval'], terms_df['odif']
+
+
 def getannotationstrings2(cann):
     """
     get a nice string summary of a curation

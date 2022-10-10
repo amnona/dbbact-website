@@ -388,9 +388,12 @@ def enrichment_results():
         webpage += "<h2>%s enrichment</h2>" % term_type
         webpage += '(negative (red) LOWER in fasta file 1, positive (blue) HIGHER in fasta file 1)<br>'
         webpage += render_template('enrichment_results.html')
+
         debug(2, 'looking for enriched %s' % term_type)
         err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type)
+        err, terms, pval, odif = enrichment.calour_enrichment(seqs1, seqs2, term_type=term_type)
         debug(2, 'found %d enriched' % len(terms))
+
         if err:
             webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str=err)
             return(webPageTemp, 400)
