@@ -105,7 +105,7 @@ def get_seq_annotations_fast(sequences):
 
 
 def _get_term_features(features, feature_terms):
-    '''Get dict of number of appearances in each sequence keyed by term
+    '''Get numpy array of score of each term for each feature
 
     Parameters
     ----------
@@ -145,6 +145,7 @@ def _get_term_features(features, feature_terms):
         for cterm, ctermcount in feature_terms[cfeature]:
             res[terms[cterm], feature_pos[cfeature]] += ctermcount
     term_list = sorted(terms, key=terms.get)
+    debug(2, 'created terms X features matrix with %d terms (rows), %d features (columns)' % (res.shape[0], res.shape[1]))
     return res, term_list
 
 
@@ -287,12 +288,14 @@ def enrichment(seqs1, seqs2, term_type="term"):
         feature_terms = _get_all_annotation_string_counts(all_seqs, info['sequence_annotations'], info['annotations'])
     else:
         debug(8, 'strange term_type encountered: %s' % term_type)
+
     # count the total number of terms
     all_terms_set = set()
     for cterms in feature_terms.values():
         for (cterm, ccount) in cterms:
             all_terms_set.add(cterm)
     debug(2, 'found %d terms associated with all sequences (%d)' % (len(all_terms_set), len(all_seqs)))
+
     debug(2, 'getting seqs1 feature array')
     feature_array, term_list = _get_term_features(seqs1, feature_terms)
     debug(2, 'getting seqs2 feature array')
