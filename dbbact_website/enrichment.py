@@ -187,6 +187,52 @@ def _get_term_features(features, feature_terms):
         feature_pos[cfeature] = tot_features_inflated
         tot_features_inflated += len(ctermlist)
 
+    # populate the matrix
+    res = np.zeros([len(terms), len(features)])
+    for idx, cfeature in enumerate(features):
+        for cterm, ctermcount in feature_terms[cfeature]:
+            res[terms[cterm], idx] += ctermcount
+
+    term_list = sorted(terms, key=terms.get)
+    debug(2, 'created terms X features matrix with %d terms (rows), %d features (columns)' % (res.shape[0], res.shape[1]))
+    return res, term_list
+
+
+def _get_term_features_inflated(features, feature_terms):
+    '''Get numpy array of score of each term for each feature. This is the inflated version (used for card mean) to overcome the different number of annotations per feature. But slower and not memory efficient
+
+    Parameters
+    ----------
+    features : list of str
+        A list of DNA sequences
+    feature_terms : dict of {feature: list of tuples of (term, amount)}
+        The terms associated with each feature in exp
+        feature (key) : str the feature (out of exp) to which the terms relate
+        feature_terms (value) : list of tuples of (str or int the terms associated with this feature, count)
+
+    Returns
+    -------
+    numpy array of T (terms) * F (inflated features)
+        total counts of each term (row) in each feature (column)
+    list of str
+        list of the terms corresponding to the numpy array rows
+    '''
+    # get all terms
+    terms = {}
+    cpos = 0
+    for cfeature, ctermlist in feature_terms.items():
+        for cterm, ccount in ctermlist:
+            if cterm not in terms:
+                terms[cterm] = cpos
+                cpos += 1
+
+    tot_features_inflated = 0
+    feature_pos = {}
+    for cfeature in features:
+        ctermlist = feature_terms[cfeature]
+        feature_pos[cfeature] = tot_features_inflated
+        tot_features_inflated += len(ctermlist)
+
     res = np.zeros([len(terms), tot_features_inflated])
 
     for cfeature in features:

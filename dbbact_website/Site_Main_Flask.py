@@ -391,7 +391,7 @@ def enrichment_results():
 
         debug(2, 'looking for enriched %s' % term_type)
         err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type)
-        err, terms, pval, odif = enrichment.calour_enrichment(seqs1, seqs2, term_type=term_type)
+        # err, terms, pval, odif = enrichment.calour_enrichment(seqs1, seqs2, term_type=term_type)
         debug(2, 'found %d enriched' % len(terms))
 
         if err:
