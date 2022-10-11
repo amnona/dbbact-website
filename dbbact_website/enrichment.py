@@ -6,6 +6,54 @@ from .utils import debug, get_dbbact_server_address
 from collections import defaultdict
 
 
+def calour_enrichment(seqs1, seqs2, term_type="term"):
+    '''
+    Do dbbact term and annotation enrichment analysis for 2 lists of sequences (comparing first to second list of sequences)
+
+    Parameters
+    ----------
+    seqs1:list of str
+        first set of sequences (ACGT)
+    seqs1:list of str
+        second set of sequences (ACGT)
+    term_type : str (optional)
+        type of the term to analyze for enrichment. can be:
+        "term" : analyze the terms per annotation (not including parent terms)
+        "annotation" : analyze the annotations associated with each sequence
+
+    Returns
+    -------
+    err : str
+        empty if ok, otherwise the error encountered
+    term_list : list of str
+        the terms which are enriched
+    pvals : list of float
+        the p-value for each term
+    odif : list of float
+        the effect size for each term
+    '''
+    import calour as ca
+
+    db = ca.database._get_database_class('dbbact')
+
+    # set the same seed (since we use a random permutation test)
+    np.random.seed(2018)
+
+    all_seqs = set(seqs1).union(set(seqs2))
+    seqs2 = list(all_seqs - set(seqs1))
+    if len(seqs2) == 0:
+        return 'No sequences remaining in background fasta after removing the sequences of interest', None, None, None
+    all_seqs = list(all_seqs)
+
+    # get the annotations for the sequences
+    info = {}
+    info['sequence_terms'], info['sequence_annotations'], info['annotations'] = get_seq_annotations_fast(all_seqs)
+
+    terms_df, resmat, features_df = db.db.term_enrichment(seqs1, seqs2, info['annotations'], info['sequence_annotations'], term_type=term_type)
+    print(terms_df)
+    return '', terms_df['feature'].values, terms_df['qval'], terms_df['odif']
+
+
 def getannotationstrings2(cann):
     """
     get a nice string summary of a curation
@@ -105,7 +153,7 @@ def get_seq_annotations_fast(sequences):
 
 
 def _get_term_features(features, feature_terms):
-    '''Get dict of number of appearances in each sequence keyed by term
+    '''Get numpy array of score of each term for each feature
 
     Parameters
     ----------
@@ -139,12 +187,59 @@ def _get_term_features(features, feature_terms):
         feature_pos[cfeature] = tot_features_inflated
         tot_features_inflated += len(ctermlist)
 
+    # populate the matrix
+    res = np.zeros([len(terms), len(features)])
+    for idx, cfeature in enumerate(features):
+        for cterm, ctermcount in feature_terms[cfeature]:
+            res[terms[cterm], idx] += ctermcount
+
+    term_list = sorted(terms, key=terms.get)
+    debug(2, 'created terms X features matrix with %d terms (rows), %d features (columns)' % (res.shape[0], res.shape[1]))
+    return res, term_list
+
+
+def _get_term_features_inflated(features, feature_terms):
+    '''Get numpy array of score of each term for each feature. This is the inflated version (used for card mean) to overcome the different number of annotations per feature. But slower and not memory efficient
+
+    Parameters
+    ----------
+    features : list of str
+        A list of DNA sequences
+    feature_terms : dict of {feature: list of tuples of (term, amount)}
+        The terms associated with each feature in exp
+        feature (key) : str the feature (out of exp) to which the terms relate
+        feature_terms (value) : list of tuples of (str or int the terms associated with this feature, count)
+
+    Returns
+    -------
+    numpy array of T (terms) * F (inflated features)
+        total counts of each term (row) in each feature (column)
+    list of str
+        list of the terms corresponding to the numpy array rows
+    '''
+    # get all terms
+    terms = {}
+    cpos = 0
+    for cfeature, ctermlist in feature_terms.items():
+        for cterm, ccount in ctermlist:
+            if cterm not in terms:
+                terms[cterm] = cpos
+                cpos += 1
+
+    tot_features_inflated = 0
+    feature_pos = {}
+    for cfeature in features:
+        ctermlist = feature_terms[cfeature]
+        feature_pos[cfeature] = tot_features_inflated
+        tot_features_inflated += len(ctermlist)
+
     res = np.zeros([len(terms), tot_features_inflated])
 
     for cfeature in features:
         for cterm, ctermcount in feature_terms[cfeature]:
             res[terms[cterm], feature_pos[cfeature]] += ctermcount
     term_list = sorted(terms, key=terms.get)
+    debug(2, 'created terms X features matrix with %d terms (rows), %d features (columns)' % (res.shape[0], res.shape[1]))
     return res, term_list
 
 
@@ -162,6 +257,21 @@ def _get_all_annotation_string_counts(features, sequence_annotations, annotation
 
 
 def _get_all_term_counts(features, feature_annotations, annotations):
+    '''Get counts of all terms associated with each feature
+
+    Parameters
+    ----------
+    features: list of str
+        the sequences to get the terms for
+    feature_annotations: dict of {feature (str): annotationIDs (list of int))
+        the list of annotations each feature appears in
+    annotations: dict of {annotationsid (int): annotation details (dict)}
+        all the annotations in the experiment
+
+    Returns
+    -------
+    dict of {feature (str): annotation counts (list of (term(str), count(int)))}
+    '''
     feature_terms = {}
     for cfeature in features:
         annotation_list = [annotations[x] for x in feature_annotations[cfeature]]
@@ -273,11 +383,19 @@ def enrichment(seqs1, seqs2, term_type="term"):
     else:
         debug(8, 'strange term_type encountered: %s' % term_type)
 
+    # count the total number of terms
+    all_terms_set = set()
+    for cterms in feature_terms.values():
+        for (cterm, ccount) in cterms:
+            all_terms_set.add(cterm)
+    debug(2, 'found %d terms associated with all sequences (%d)' % (len(all_terms_set), len(all_seqs)))
+
     debug(2, 'getting seqs1 feature array')
     feature_array, term_list = _get_term_features(seqs1, feature_terms)
     debug(2, 'getting seqs2 feature array')
     bg_array, term_list = _get_term_features(seqs2, feature_terms)
 
+    debug(2, 'bgarray: %s, feature_array: %s' % (bg_array.shape, feature_array.shape))
     all_feature_array = np.hstack([feature_array, bg_array])
 
     labels = np.zeros(all_feature_array.shape[1])
