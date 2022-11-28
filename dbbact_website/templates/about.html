@@ -4,6 +4,17 @@
     <tr style="background-color:white"><td>
     <h1>Introduction to dbBact</h1>
 dbBact is a community knowledge base for information about mircobial ecology. It tries to answer the question "where have I seen this bacterial sequence before", summarizing manual observations from multiple amplicon sequencing experiments. <br>
+<br>
+<h1>Paper</h2>
+A paper describing dbBact is available at: <a href="https://www.biorxiv.org/content/10.1101/2022.02.27.482174v2.abstract">https://www.biorxiv.org/content/10.1101/2022.02.27.482174v2.abstract</a><br>
+<br>
+<h1>Using dbBact</h1>
+dbBact can be accessed using the following methods:<br>
+<b>website</b> - (<a href="dbbact.org">dbbact.org</a>) Enables querying and adding anonymous annotations.<br>
+<b>qiime2 plugin</b> - (<a href="https://library.qiime2.org/plugins/q2-dbbact/36/">library.qiime2.org/plugins/q2-dbbact/36/</a>) Integrates dbBact word clouds and term enrichment analysis into the qiime2 analysis pipeline<br>
+<b>Calour</b> - (<a href="https://github.com/biocore/calour">github.com/biocore/calour</a>) A python module for interactive heatmap exploration of microbial data. dbBact information is displayed in the heatmaps, as well as in command based analysis and enables adding anonymous and named annotations.<br>
+<b>REST API</b> - (<a href="https://api.dbbact.org">api.dbbact.org</a>) Enables programmatic querying of dbBact, and addition of new annotations.<br>
+<br>
 <h2>Sequences</h2>
 Each microbe in dbBact is identified by its' amplicon sequence. Following the development of subOTU methods (DADA2, UNoise2, Deblur), we can identify the actual amplicon sequences present in each sample in an objective, repeatable method, without the need for databases. dbBact utilizes these subOTU sequences as the identified for the microbes present. Note that since dbBact does not rely on a specific primer set/region, the same microbe can be present as multiple sequences arising from multiple primers/regions. However, currently dbBact is mostly using the Earth Microbiome Project V4 (515f) region for bacteria. <br>
 * Note that sequences must be at least 100bp longs. Longer sequences are supported (we recommend at least 150bp), and query sequences are compared using each dbBact sequence length.
@@ -37,12 +48,7 @@ A single taxonomic level can be used as a query (such as gammaproteobacteria). R
 Use any dbBact ontolgy term (such as crohns' disease, or feces) to get all annotations containing this term.
 <h3>Differential abundance</h3>
 Compare two sets of sequences (two FASTA files) to get dbBact terms significantly enriched in sequences from one of the sequence sets. Significance is based on mean-rank permutation test with dsFDR multiple hypothesis correction.
-<h1>Using dbBact</h1>
-dbBact can be accessed using the following methods:<br>
-<b>website</b> - (dbbact.org) Enables querying and adding anonymous annotations.<br>
-<b>Calour</b> - (https://github.com/biocore/calour) A python module for interactive heatmap exploration of microbial data. dbBact information is displayed in the heatmaps, as well as in command based analysis and enables adding anonymous and named annotations.<br>
-<b>REST API</b> - (api.dbbact.org) Enables querying and addition of new annotations.<br>
-<br><br>
+<br>
     </td></tr>
         
     </tr>
@@ -52,7 +58,7 @@ dbBact can be accessed using the following methods:<br>
         <td colspan="1"></td>
     </tr>
     <tr height="10" style="background-color:white">
-        <td colspan="1"><font face="arial" size="4">Amnon Amir, formerly from UCSD</font></td>
+        <td colspan="1"><font face="arial" size="4">Amnon Amir, Sheba medical center</font></td>
     </tr>
     <tr height="10" style="background-color:white">
         <td colspan="1"><font face="arial" size="4">Eitan Ozel, The Open University of Israel</font></td>
