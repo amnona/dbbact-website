@@ -16,7 +16,7 @@ def gunicorn(debug_level=6):
     '''The entry point for running the api server through gunicorn (http://gunicorn.org/)
     to run dbbact rest server using gunicorn, use:
 
-    gunicorn 'dbbact.Server_Main:gunicorn(debug_level=6)' -b 0.0.0.0:5001 --workers 4 --name=dbbact-rest-api
+    gunicorn 'dbbact.Server_Main:gunicorn(debug_level=6)' -b 127.0.0.1:5001 --workers 4 --name=dbbact-rest-api
 
 
     Parameters
@@ -31,6 +31,10 @@ def gunicorn(debug_level=6):
     SetDebugLevel(debug_level)
     app.debug = True
     debug(6, 'starting dbbact website server using gunicorn, debug_level=%d' % debug_level)
+
+    # ignore proxies for local communication
+    os.environ['NO_PROXY']='127.0.0.1'
+
     return app
 
 
@@ -38,6 +42,6 @@ if __name__ == '__main__':
     SetDebugLevel(6)
     debug(2, 'starting server')
     if 'OPENU_FLAG' in os.environ:
-        app.run(host='0.0.0.0', port=5000, use_reloader=False, threaded=True)
+        app.run(host='127.0.0.1', port=5000, use_reloader=False, threaded=True)
     else:
         app.run(use_reloader=False, threaded=True)
