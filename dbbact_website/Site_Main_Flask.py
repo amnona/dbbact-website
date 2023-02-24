@@ -987,7 +987,7 @@ def draw_download_button(annotationid):
     webPage : str
         html for the download button with the link to the fasta file download page
     '''
-    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download scores</button></div>' % url_for('.fscore_download', annotationid=annotationid)
+    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download scores</button></div>' % url_for('.annotation_seq_download', annotationid=annotationid)
     return webPage
 
 
