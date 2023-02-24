@@ -2204,7 +2204,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
         debug(1, 'drawing term pair word cloud')
         # wpart += draw_wordcloud_fscore(fscores, recall, precision, term_count)
         wpart += draw_wordcloud_fscore(reduced_f, recall, precision, term_count)
-        wpart += draw_group_annotation_details(1)
+        wpart += draw_download_button(1)
 
     wpart += render_template('tabs.html')
 
