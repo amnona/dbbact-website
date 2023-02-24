@@ -973,6 +973,24 @@ def draw_download_fasta_button(annotationid):
     return webPage
 
 
+def draw_download_button(annotationid):
+    '''
+    Draw a button with a link to download the fasta sequences of the annotation
+
+    Parameters
+    ----------
+    annotationid : int
+        the annotationid for which to download the sequences
+
+    Returns
+    -------
+    webPage : str
+        html for the download button with the link to the fasta file download page
+    '''
+    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download scores</button></div>' % url_for('.fscore_download', annotationid=annotationid)
+    return webPage
+
+
 @Site_Main_Flask_Obj.route('/ontology_info/<string:term>')
 def ontology_info(term):
     """
@@ -1824,6 +1842,9 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
     wpart = '<div id="%s" class="tab-pane" style="margin-top: 20px; margin-bottom: 20px;">\n' % section_id
     if description is not None:
         wpart += description
+
+    wpart += draw_download_button(1)
+
     wpart += '<table style="width: 90%;">\n'
     wpart += '<col><col width="100px">\n'
     wpart += '<tr><th>Term</th><th>Score</th></tr>\n'
