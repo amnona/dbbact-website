@@ -1920,8 +1920,9 @@ def download_fscores_sequence(sequence):
     fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     output = ''
+    debug(6,str(reduced_f))
     print(reduced_f)
-    return 'batatat'
+    return str(reduced_f)
 
     output = ''
     for idx, cseq in enumerate(seqs):
