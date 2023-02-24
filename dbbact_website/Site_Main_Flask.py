@@ -1843,8 +1843,6 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
     if description is not None:
         wpart += description
 
-    wpart += draw_download_button(1)
-
     wpart += '<table style="width: 90%;">\n'
     wpart += '<col><col width="100px">\n'
     wpart += '<tr><th>Term</th><th>Score</th></tr>\n'
@@ -2206,6 +2204,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
         debug(1, 'drawing term pair word cloud')
         # wpart += draw_wordcloud_fscore(fscores, recall, precision, term_count)
         wpart += draw_wordcloud_fscore(reduced_f, recall, precision, term_count)
+        waprt += draw_group_annotation_details
 
     wpart += render_template('tabs.html')
 
