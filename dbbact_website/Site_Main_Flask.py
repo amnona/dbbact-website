@@ -994,7 +994,7 @@ def draw_download_button(sequences=None):
     webPage : str
         html for the download button with the link to the fasta file download page
     '''
-    if sequence is None:
+    if sequences is None:
         return ''
 
     webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download scores</button></div>' % url_for('.download_fscores_sequence', sequence=','.join(sequences))
