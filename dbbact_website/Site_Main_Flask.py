@@ -628,7 +628,7 @@ def render_sequence_annotations(annotations, sequence=None):
             cannotation['website_sequences'] = [0]
         annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=False)
         term_info = get_term_info_for_annotations(annotations)
-        webPage += draw_annotation_details(annotations, term_info, show_relative_freqs=True, sequence=sequence)
+        webPage += draw_annotation_details(annotations, term_info, show_relative_freqs=True, sequences=[sequence])
 
     return webPage
 
@@ -1210,7 +1210,7 @@ def get_taxonomy_info(taxonomy):
     webPage = render_header(title='dbBact ontology')
     webPage += render_template('taxinfo.html', taxonomy=taxonomy, seq_count=len(tax_seqs), details=tax_seq_list)
 
-    webPage += draw_annotation_details(annotations)
+    webPage += draw_annotation_details(annotations, sequences=[x['seq'] for x in seqs])
     webPage += render_template('footer.html')
     return '', webPage
 
@@ -1703,7 +1703,7 @@ def user_info(username):
                render_template('footer.html'))
 
 
-def draw_annotation_details(annotations, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[], sequence=None):
+def draw_annotation_details(annotations, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[], sequences=None):
     '''Draw the wordcloud and details for a list of annotations
     Converts the annotations list to dict, creates the seqannotations and calls draw_group_annotation_details()
 
@@ -1723,7 +1723,7 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
         True (default) to draw the wordcloud, False to just draw the term tables
     ignore_exp: list of int, optional
         the experiment ids to exclude from the analysis
-    sequence: str or None, optional
+    sequences: list of str or None, optional
         if not None, this is the sequence the annotations are for (used for the download annotations button)
 
     Returns
@@ -1734,7 +1734,7 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
     seqannotations = (((0, list(annotations_dict.keys())),))
-    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=[sequence])
+    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=sequences)
     return wpart
 
 
@@ -2230,7 +2230,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
         True to plot the wordcloud. False to not plot it
     ignore_exp : list of int (optional)
         list of experiment ids to ignore when calculating the score.
-    sequences : str or list of str or None (optional)
+    sequences : list of str or None (optional)
         the sequences for which the annotation details are obtained.
         ??? If None, calculate from seqannotations
 
@@ -2251,8 +2251,6 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
         debug(1, 'drawing term pair word cloud')
         # wpart += draw_wordcloud_fscore(fscores, recall, precision, term_count)
         wpart += draw_wordcloud_fscore(reduced_f, recall, precision, term_count)
-        if isinstance(sequences, str):
-            sequences = [sequences]
         wpart += draw_download_button(sequences=sequences)
 
     wpart += render_template('tabs.html')
