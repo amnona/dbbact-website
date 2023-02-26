@@ -1919,14 +1919,10 @@ def download_fscores_sequence(sequence):
     ignore_exp = []
     fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
-    output = ''
-    debug(6,str(reduced_f))
-    print(reduced_f)
-    return str(reduced_f)
-
-    output = ''
-    for idx, cseq in enumerate(seqs):
-        output += str(Markup.escape('>%d %s\n%s\n' % (idx, cseq.get('taxonomy', ''), cseq['seq'])))
+    output = 'term\tf-score\trecall\tprecision\tcount\n'
+    for cterm,cfscore in reduced_f.items():
+        output += '%s\t%s\t%s\t%s\t%s\n' % (cterm, cfscore, recall.get(cterm, 0), precision.get(cterm, 0), term_count.get(cterm, 0))
+    debug(1, output)
     response = make_response(output)
     response.headers["Content-Disposition"] = "attachment; filename=annotation-%d-sequences.fa" % annotationid
     return response
