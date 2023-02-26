@@ -1734,7 +1734,7 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
     seqannotations = (((0, list(annotations_dict.keys())),))
-    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequence=sequence)
+    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=[sequence])
     return wpart
 
 
