@@ -1924,7 +1924,7 @@ def download_fscores_sequence(sequence):
         output += '%s\t%s\t%s\t%s\t%s\n' % (cterm, cfscore, recall.get(cterm, 0), precision.get(cterm, 0), term_count.get(cterm, 0))
     debug(1, output)
     response = make_response(output)
-    response.headers["Content-Disposition"] = "attachment; filename=annotation-%d-sequences.fa" % annotationid
+    response.headers["Content-Disposition"] = "attachment; filename=sequence-scores.tsv"
     return response
 
 
