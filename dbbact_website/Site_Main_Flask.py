@@ -528,7 +528,7 @@ def sequence_annotations(sequence):
     Parameters
     ----------
     sequence: str
-        the sequences to look for (ACGT string)
+        the sequence to look for (ACGT string)
     '''
 
     # first we check whether the sequence is in dbbact - if not, we'll try to trim it
@@ -604,13 +604,19 @@ def sequence_annotations(sequence):
     else:
         # draw the annotations info
         annotations = httpRes.json().get('annotations')
-        webPage += render_sequence_annotations(annotations)
+        webPage += render_sequence_annotations(annotations, sequence=sequence)
         webPage += render_template('footer.html')
     return webPage
 
 
-def render_sequence_annotations(annotations):
+def render_sequence_annotations(annotations, sequence=None):
     '''Draw the webpage summarizing the annotations and taxonomy of a given sequence
+
+    Parameters
+    ----------
+    annotations: 
+    sequence: str or None
+        the sequence the annotations are for
     '''
     webPage = ''
     if len(annotations) == 0:
@@ -622,7 +628,7 @@ def render_sequence_annotations(annotations):
             cannotation['website_sequences'] = [0]
         annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=False)
         term_info = get_term_info_for_annotations(annotations)
-        webPage += draw_annotation_details(annotations, term_info, show_relative_freqs=True)
+        webPage += draw_annotation_details(annotations, term_info, show_relative_freqs=True, sequence=sequence)
 
     return webPage
 
@@ -970,6 +976,28 @@ def draw_download_fasta_button(annotationid):
         html for the download button with the link to the fasta file download page
     '''
     webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download FASTA</button></div>' % url_for('.annotation_seq_download', annotationid=annotationid)
+    return webPage
+
+
+def draw_download_button(sequence=None):
+    '''
+    Draw a button with a link to download the fasta sequences of the annotation
+
+    Parameters
+    ----------
+    sequence: str or None, optional
+        if not None, draw the button, linking to the download f-scores function for this sequence
+        if None, don't draw the button
+
+    Returns
+    -------
+    webPage : str
+        html for the download button with the link to the fasta file download page
+    '''
+    if sequence is None:
+        return ''
+
+    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download scores</button></div>' % url_for('.download_fscores_sequence', sequence=sequence)
     return webPage
 
 
@@ -1675,7 +1703,7 @@ def user_info(username):
                render_template('footer.html'))
 
 
-def draw_annotation_details(annotations, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[]):
+def draw_annotation_details(annotations, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[], sequence=None):
     '''Draw the wordcloud and details for a list of annotations
     Converts the annotations list to dict, creates the seqannotations and calls draw_group_annotation_details()
 
@@ -1695,6 +1723,8 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
         True (default) to draw the wordcloud, False to just draw the term tables
     ignore_exp: list of int, optional
         the experiment ids to exclude from the analysis
+    sequence: str or None, optional
+        if not None, this is the sequence the annotations are for (used for the download annotations button)
 
     Returns
     -------
@@ -1704,7 +1734,7 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
     seqannotations = (((0, list(annotations_dict.keys())),))
-    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp)
+    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequence=sequence)
     return wpart
 
 
@@ -1824,6 +1854,7 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
     wpart = '<div id="%s" class="tab-pane" style="margin-top: 20px; margin-bottom: 20px;">\n' % section_id
     if description is not None:
         wpart += description
+
     wpart += '<table style="width: 90%;">\n'
     wpart += '<col><col width="100px">\n'
     wpart += '<tr><th>Term</th><th>Score</th></tr>\n'
@@ -1861,6 +1892,39 @@ def annotation_seq_download(annotationid):
         output += str(Markup.escape('>%d %s\n%s\n' % (idx, cseq.get('taxonomy', ''), cseq['seq'])))
     response = make_response(output)
     response.headers["Content-Disposition"] = "attachment; filename=annotation-%d-sequences.fa" % annotationid
+    return response
+
+
+@Site_Main_Flask_Obj.route('/download_fscores_sequence/<string:sequence>')
+def download_fscores_sequence(sequence):
+    '''return a download of the fscores for the given sequence
+    '''
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
+                       json={'sequences': [sequence]})
+    if res.status_code != 200:
+        msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
+        debug(6, msg)
+        return msg, msg
+
+    res = res.json()
+    annotations = res['annotations']
+    seqannotations = res['seqannotations']
+    if len(seqannotations) == 0:
+        msg = 'None of the %d sequences were found in dbBact. Are these >100bp long 16S sequences?\nNote dbBact is populated mostly by EMP V4 (515F) amplicon sequences.' % len(seqs)
+        debug(3, msg)
+        return msg, msg
+    term_info = res['term_info']
+
+    # get the experiment annotations
+    ignore_exp = []
+    fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
+
+    output = 'term\tf-score\trecall\tprecision\tcount\n'
+    for cterm,cfscore in reduced_f.items():
+        output += '%s\t%s\t%s\t%s\t%s\n' % (cterm, cfscore, recall.get(cterm, 0), precision.get(cterm, 0), term_count.get(cterm, 0))
+    debug(1, output)
+    response = make_response(output)
+    response.headers["Content-Disposition"] = "attachment; filename=sequence-scores.tsv"
     return response
 
 
@@ -2143,7 +2207,7 @@ def old_dbbact(path):
     return json.dumps(res)
 
 
-def draw_group_annotation_details(annotations, seqannotations, term_info, include_word_cloud=True, ignore_exp=[], local_save_name=None, sequences=None):
+def draw_group_annotation_details(annotations, seqannotations, term_info, include_word_cloud=True, ignore_exp=[], local_save_name=None, sequence=None):
     '''
     Create wordcloud and table entries for a list of annotations
 
@@ -2165,8 +2229,9 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
         True to plot the wordcloud. False to not plot it
     ignore_exp : list of int (optional)
         list of experiment ids to ignore when calculating the score.
-    sequences : list of str or None (optional)
-        the list of sequences to which the annotation details are obtained. If None, calculate from seqannotations
+    sequences : str or None (optional)
+        the sequence for which the annotation details are obtained.
+        ??? If None, calculate from seqannotations
 
     Returns
     -------
@@ -2185,6 +2250,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
         debug(1, 'drawing term pair word cloud')
         # wpart += draw_wordcloud_fscore(fscores, recall, precision, term_count)
         wpart += draw_wordcloud_fscore(reduced_f, recall, precision, term_count)
+        wpart += draw_download_button(sequence=sequence)
 
     wpart += render_template('tabs.html')
 
