@@ -1756,6 +1756,7 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
                 return 'Error %s encountered' % msg
             res = res.json()
             orig_seqannotations = res['seqannotations']
+            debug(2, orig_seqannotations)            
             # now make sure we only keep the sequence annotations found in our annotations
             seqannotations = []
             for cseqid, cseqanno in orig_seqannotations:
@@ -1763,7 +1764,6 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
                 seqannotations.append( (cseqid, ok_anno) )
         else:
             seqannotations = (((0, list(annotations_dict.keys())),))
-    debug(2, seqannotations)
     wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=sequences)
     return wpart
 
