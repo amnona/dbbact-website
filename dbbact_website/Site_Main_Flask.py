@@ -1171,12 +1171,14 @@ def get_taxonomy_info(taxonomy):
         the html of the resulting table
     '''
     # get the taxonomy annotations
+    debug(1, 'get_taxonomy_info for %s' % taxonomy)
     res = requests.get(get_dbbact_server_address() + '/sequences/get_taxonomy_annotations', json={'taxonomy': taxonomy})
     if res.status_code != 200:
         msg = 'error getting taxonomy annotations for %s: %s' % (Markup.escape(taxonomy), res.content)
         debug(6, msg)
         return msg, msg
     tax_seqs = res.json()['seqids']
+    debug(2, 'found %d taxonomy annotations for taxonomy %s' % (len(tax_seqs), taxonomy))
     annotations_counts = res.json()['annotations']
     if len(annotations_counts) == 0:
         msg = 'no annotations found for taxonomy %s' % Markup.escape(taxonomy)
@@ -1200,6 +1202,7 @@ def get_taxonomy_info(taxonomy):
         debug(6, msg)
         return msg, msg
     seqs = res.json()['sequences']
+    debug(2, 'found %d sequences for taxonomy %s' % (len(seqs), taxonomy))
 
     # add the list of bacterial sequences with the taxonomy
     tax_seq_list = ''
@@ -2252,7 +2255,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     wpart = ''
 
     # calculate the score for each term
-    debug(1, 'calculating score')
+    debug(1, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (len(annotations), len(seqannotations), ignore_exp, len(sequences)))
     fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     # draw the wordcloud for the group terms
