@@ -997,7 +997,13 @@ def draw_download_button(sequences=None):
     if sequences is None:
         return ''
 
-    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download scores</button></div>' % url_for('.download_fscores_sequence', sequences=','.join(sequences))
+    webPage = '<div style="margin: 20px">'
+    webPage += '<form action="%s">' % url_for('.download_fscores_sequences_form')
+    webPage += '<input type="hidden" id="sequences" name="sequences" value=%s>' % ','.join(sequences)
+    webPage += '<input type="submit" value="Download scores">'
+    webPage += '</form>'
+    webPage += '</div>'
+    # webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download scores</button></div>' % url_for('.download_fscores_sequence', sequences=','.join(sequences))
     return webPage
 
 
