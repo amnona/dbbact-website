@@ -1903,19 +1903,13 @@ def annotation_seq_download(annotationid):
 
 @Site_Main_Flask_Obj.route('/download_fscores_sequences_form',methods=['POST'])
 def download_fscores_sequences_form():
-    debug(3,'batahgata')
+    debug(1,'download_fscores_sequences_form')
     sequences = request.form['sequences']
-    debug(3,sequences)
-    return sequences
-    return 'batgata'
+    sequences = sequences.split(',')
+    debug(1,'got %d sequences' % len(sequences))
 
-@Site_Main_Flask_Obj.route('/download_fscores_sequence/<string:sequences>')
-def download_fscores_sequence(sequences):
-    '''return a download of the fscores for the given sequences
-    sequences is a comma separated list of the sequences to get the scores for (combined on all sequences)
-    '''
     res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
-                       json={'sequences': sequences.split(',')})
+                       json={'sequences': sequences})
     if res.status_code != 200:
         msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
         debug(6, msg)
