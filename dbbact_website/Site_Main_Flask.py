@@ -2285,7 +2285,19 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     wpart = ''
 
     # calculate the score for each term
-    debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (len(annotations), len(seqannotations), ignore_exp, len(sequences)))
+    if seqannotations is None:
+        num_seqanno = 0
+    else:
+        num_seqanno = len(seqannotations)
+    if sequences is None:
+        num_seqs = 0
+    else:
+        num_seqs = len(sequences)
+    if annotations is None:
+        num_anno = 0
+    else:
+        num_anno = len(annotations)
+    debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (num_anno, num_seqanno, ignore_exp, num_seqs))
     fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     # draw the wordcloud for the group terms
