@@ -628,7 +628,7 @@ def render_sequence_annotations(annotations, sequence=None):
             cannotation['website_sequences'] = [0]
         annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=False)
         term_info = get_term_info_for_annotations(annotations)
-        webPage += draw_annotation_details(annotations, term_info, show_relative_freqs=True, sequences=[sequence])
+        webPage += draw_annotation_details(annotations, term_info=term_info, show_relative_freqs=True, sequences=[sequence])
 
     return webPage
 
@@ -1748,6 +1748,7 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
     if seqannotations is None:
+        debug(2, 'no seqannotations provided, querying')
         if sequences is not None:
             res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations', json={'sequences': sequences})
             if res.status_code != 200:
