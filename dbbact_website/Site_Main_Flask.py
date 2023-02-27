@@ -1763,6 +1763,7 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
                 seqannotations.append( (cseqid, ok_anno) )
         else:
             seqannotations = (((0, list(annotations_dict.keys())),))
+    debug(2, seqannotations)
     wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=sequences)
     return wpart
 
