@@ -693,7 +693,7 @@ def draw_sequences_annotations(seqs):
 
     webPage = render_header()
     webPage += '<h2>Annotations for sequence list:</h2>'
-    webPage += draw_annotation_details(annotations)
+    webPage += draw_annotation_details(annotations, sequences=seqs)
     webPage += render_template('footer.html')
     return '', webPage
 
@@ -1364,7 +1364,7 @@ def get_hash_info(hash_str):
 
     webPage = render_header(title='dbBact ontology')
     webPage += render_template('hashinfo.html', hash_place_holder=hash_str, seq_names_place_holder=seq_web)
-    webPage += draw_annotation_details(annotations)
+    webPage += draw_annotation_details(annotations, sequences=seq_strs)
     webPage += render_template('footer.html')
     return '', webPage
 
@@ -1714,7 +1714,7 @@ def user_info(username):
                render_template('footer.html'))
 
 
-def draw_annotation_details(annotations, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[], sequences=None):
+def draw_annotation_details(annotations, seqannotations=None, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[], sequences=None):
     '''Draw the wordcloud and details for a list of annotations
     Converts the annotations list to dict, creates the seqannotations and calls draw_group_annotation_details()
 
@@ -1722,6 +1722,8 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
     ----------
     annotations: list of dict
         list of annotations (each annotation is a dict of annotation details) - from dbbact /sequences/get_annotations
+    seqannotations: list of tuples of (seqid (int), list [annotationids]) or None
+        if None, ????
     term_info : dict of dict or None (optional)
         None (default) to skip relative word cloud.
         Otherwise need to have information about all ontology terms to be drawn
@@ -1741,11 +1743,26 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
     -------
     html part for wordcloud and term tables
     '''
-    debug(2, 'draw_annotation_details for %d sequences' % len(sequences))
+    debug(2, 'draw_annotation_details for %d sequences, %d annotations' % (len(sequences), len(annotations)))
     annotations_dict = {}
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
-    seqannotations = (((0, list(annotations_dict.keys())),))
+    if seqannotations is None:
+        if sequences is not None:
+            res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations', json={'sequences': sequences})
+            if res.status_code != 200:
+                msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
+                debug(6, msg)
+                return 'Error %s encountered' % msg
+            res = res.json()
+            orig_seqannotations = res['seqannotations']
+            # now make sure we only keep the sequence annotations found in our annotations
+            seqannotations = []
+            for cseqid, cseqanno in orig_seqannotations:
+                ok_anno = [str(x) for x in cseqanno if str(x) in annotations_dict]
+                seqannotations.append( (cseqid, ok_anno) )
+        else:
+            seqannotations = (((0, list(annotations_dict.keys())),))
     wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=sequences)
     return wpart
 
