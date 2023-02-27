@@ -1906,7 +1906,7 @@ def download_fscores_sequences_form():
     debug(1,'download_fscores_sequences_form')
     sequences = request.form['sequences']
     sequences = sequences.split(',')
-    debug(1,'got %d sequences' % len(sequences))
+    debug(2,'got %d sequences for download_fscores_sequences_form' % len(sequences))
 
     res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
                        json={'sequences': sequences})
