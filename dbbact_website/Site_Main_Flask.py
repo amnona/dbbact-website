@@ -998,7 +998,7 @@ def draw_download_button(sequences=None):
         return ''
 
     webPage = '<div style="margin: 20px">'
-    webPage += '<form action="%s">' % url_for('.download_fscores_sequences_form')
+    webPage += '<form action="%s" method=post>' % url_for('.download_fscores_sequences_form')
     webPage += '<input type="hidden" id="sequences" name="sequences" value=%s>' % ','.join(sequences)
     webPage += '<input type="submit" value="Download scores">'
     webPage += '</form>'
