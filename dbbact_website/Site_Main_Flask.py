@@ -1743,7 +1743,15 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
     -------
     html part for wordcloud and term tables
     '''
-    debug(2, 'draw_annotation_details for %d sequences, %d annotations' % (len(sequences), len(annotations)))
+    if sequences is None:
+        num_seqs = 0
+    else:
+        num_seqs = len(sequences)
+    if annotations is None:
+        num_anno = 0
+    else:
+        num_anno = len(annotations)
+    debug(2, 'draw_annotation_details for %d sequences, %d annotations' % (num_seqs, num_anno))
     annotations_dict = {}
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
@@ -1757,8 +1765,6 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
                 return 'Error %s encountered' % msg
             res = res.json()
             orig_seqannotations = res['seqannotations']
-            debug(6,'batlaka')
-            debug(2, orig_seqannotations)            
             # now make sure we only keep the sequence annotations found in our annotations
             seqannotations = []
             for cseqid, cseqanno in orig_seqannotations:
@@ -2277,7 +2283,19 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     wpart = ''
 
     # calculate the score for each term
-    debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (len(annotations), len(seqannotations), ignore_exp, len(sequences)))
+    if seqannotations is None:
+        num_seqanno = 0
+    else:
+        num_seqanno = len(seqannotations)
+    if sequences is None:
+        num_seqs = 0
+    else:
+        num_seqs = len(sequences)
+    if annotations is None:
+        num_anno = 0
+    else:
+        num_anno = len(annotations)
+    debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (num_anno, num_seqanno, ignore_exp, num_seqs))
     fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     # draw the wordcloud for the group terms
