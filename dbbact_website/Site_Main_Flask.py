@@ -719,6 +719,7 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
         the webpage for the annotations of these sequences
     '''
     # get the compact annotations for the sequences
+    debug(2, 'draw_sequences_annotations_compact for %d sequences. ignore_exp=%s' % (len(seqs), ignore_exp))
     res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
                        json={'sequences': seqs})
     if res.status_code != 200:
@@ -2256,7 +2257,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
 
     # draw the wordcloud for the group terms
     if include_word_cloud is True:
-        debug(1, 'drawing term pair word cloud')
+        debug(2, 'drawing term pair word cloud')
         # wpart += draw_wordcloud_fscore(fscores, recall, precision, term_count)
         wpart += draw_wordcloud_fscore(reduced_f, recall, precision, term_count)
         wpart += draw_download_button(sequences=sequences)
