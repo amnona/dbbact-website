@@ -1171,15 +1171,15 @@ def get_taxonomy_info(taxonomy):
         the html of the resulting table
     '''
     # get the taxonomy annotations
-    debug(1, 'get_taxonomy_info for %s' % taxonomy)
+    debug(2, 'get_taxonomy_info for %s' % taxonomy)
     res = requests.get(get_dbbact_server_address() + '/sequences/get_taxonomy_annotations', json={'taxonomy': taxonomy})
     if res.status_code != 200:
         msg = 'error getting taxonomy annotations for %s: %s' % (Markup.escape(taxonomy), res.content)
         debug(6, msg)
         return msg, msg
     tax_seqs = res.json()['seqids']
-    debug(2, 'found %d taxonomy annotations for taxonomy %s' % (len(tax_seqs), taxonomy))
     annotations_counts = res.json()['annotations']
+    debug(2, 'found %d taxonomy annotations for %d sequences for taxonomy %s' % (len(annotations_counts), len(tax_seqs), taxonomy))
     if len(annotations_counts) == 0:
         msg = 'no annotations found for taxonomy %s' % Markup.escape(taxonomy)
         debug(1, msg)
@@ -1220,7 +1220,8 @@ def get_taxonomy_info(taxonomy):
     webPage = render_header(title='dbBact ontology')
     webPage += render_template('taxinfo.html', taxonomy=taxonomy, seq_count=len(tax_seqs), details=tax_seq_list)
 
-    webPage += draw_annotation_details(annotations, sequences=[x['seq'] for x in seqs])
+    sequences = [x['seq'] for x in seqs]
+    webPage += draw_annotation_details(annotations, sequences=sequences)
     webPage += render_template('footer.html')
     return '', webPage
 
@@ -1740,6 +1741,7 @@ def draw_annotation_details(annotations, term_info=None, show_relative_freqs=Fal
     -------
     html part for wordcloud and term tables
     '''
+    debug(2, 'draw_annotation_details for %d sequences' % len(sequences))
     annotations_dict = {}
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
@@ -2255,7 +2257,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     wpart = ''
 
     # calculate the score for each term
-    debug(1, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (len(annotations), len(seqannotations), ignore_exp, len(sequences)))
+    debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (len(annotations), len(seqannotations), ignore_exp, len(sequences)))
     fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     # draw the wordcloud for the group terms
