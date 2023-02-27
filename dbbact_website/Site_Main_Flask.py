@@ -1765,8 +1765,6 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
                 return 'Error %s encountered' % msg
             res = res.json()
             orig_seqannotations = res['seqannotations']
-            debug(6,'batlaka')
-            debug(2, orig_seqannotations)            
             # now make sure we only keep the sequence annotations found in our annotations
             seqannotations = []
             for cseqid, cseqanno in orig_seqannotations:
