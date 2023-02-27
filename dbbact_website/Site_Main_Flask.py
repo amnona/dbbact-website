@@ -1901,9 +1901,12 @@ def annotation_seq_download(annotationid):
     return response
 
 
-@Site_Main_Flask_Obj.route('/download_fscores_sequences_form')
+@Site_Main_Flask_Obj.route('/download_fscores_sequences_form',methods=['POST'])
 def download_fscores_sequences_form():
     debug(3,'batahgata')
+    sequences = request.form['sequences']
+    debug(3,sequences)
+    return sequences
     return 'batgata'
 
 @Site_Main_Flask_Obj.route('/download_fscores_sequence/<string:sequences>')
