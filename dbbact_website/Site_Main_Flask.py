@@ -1743,7 +1743,15 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
     -------
     html part for wordcloud and term tables
     '''
-    debug(2, 'draw_annotation_details for %d sequences, %d annotations' % (len(sequences), len(annotations)))
+    if sequences is None:
+        num_seqs = 0
+    else:
+        num_seqs = len(sequences)
+    if annotations is None:
+        num_anno = 0
+    else:
+        num_anno = len(annotations)
+    debug(2, 'draw_annotation_details for %d sequences, %d annotations' % (num_seqs, num_anno))
     annotations_dict = {}
     for cannotation in annotations:
         annotations_dict[str(cannotation['annotationid'])] = cannotation
