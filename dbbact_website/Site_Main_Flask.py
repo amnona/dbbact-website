@@ -2688,7 +2688,7 @@ def get_close_sequences(sequence, max_mismatches = 2):
     httpResTax = requests.get(dbbact_server_address + '/sequences/get_close_sequences', json=rdata)
     if httpResTax.status_code == requests.codes.ok:
         res = httpResTax.json()
-        debug(2, 'Found %d close sequences' % len(res['sequences']))
+        debug(2, 'Found %d close sequences' % len(res['similar_seqs']))
         return res['similar_seqs']
     debug('error encountered when trying to get close sequences for sequence %s' % sequence)
     return []
