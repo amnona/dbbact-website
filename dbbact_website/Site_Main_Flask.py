@@ -1817,10 +1817,6 @@ def draw_annotation_table(annotations, include_ratio=True):
     -------
     str: the HTML part for the annotations table
     '''
-    # wpart = '<div id="annot-table" class="tab-pane in active" style="margin-top: 20px; margin-bottom: 20px;">\n'
-
-    # the table header and css
-    # wpart += render_template('annottable.html')
     wpart = ''
     for dataRow in annotations:
         wpart += '  <tr>'
@@ -1844,13 +1840,6 @@ def draw_annotation_table(annotations, include_ratio=True):
         # add the annotation region
         wpart += '<td>%s</td>' % Markup.escape(dataRow['primer'])
 
-        # add the number of flags
-        if len(dataRow['flags']) > 0:
-            flags = '%s' % len(dataRow['flags'])
-        else:
-            flags = 'No'
-        wpart += '<td>%s</td>' % Markup.escape(flags)
-
         # add the sequences
         annotationid = dataRow.get('annotationid', -1)
         num_sequences = dataRow.get('num_sequences', '?')
@@ -1864,6 +1853,24 @@ def draw_annotation_table(annotations, include_ratio=True):
             observed_sequences = '?'
             sequences_string = '%s' % num_sequences
         wpart += "<td><a href=%s>%s</a></td>" % (url_for('.annotation_seqs', annotationid=annotationid), Markup.escape(sequences_string))
+
+        # add the annotation review status
+        review_status = dataRow.get('review_status', -1)
+        if review_status == 0:
+            review_status_str = 'pending'
+        elif review_status == 1:
+            review_status_str = 'approved'
+        else:
+            review_status_str = 'NA'
+        wpart += '<td>%s</td>' % Markup.escape(review_status_str)
+
+        # add the number of flags
+        if len(dataRow['flags']) > 0:
+            flags = '%s' % len(dataRow['flags'])
+        else:
+            flags = 'No'
+        wpart += '<td>%s</td>' % Markup.escape(flags)
+
         wpart += '</tr>\n'
     # wpart += '</table>\n'
     # wpart += '</div>\n'
