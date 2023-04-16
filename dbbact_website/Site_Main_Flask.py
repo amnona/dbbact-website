@@ -866,6 +866,15 @@ def annotation_info(annotationid):
 
     webPage += draw_flag_annotation_button(annotationid)
 
+    webPage += '<h2>Review status</h2>'
+    review_status = annotation.get('review_status', -1)
+    if review_status == 0:
+        webPage += '<br>Pending review (annotation has not been reviewed yet by the dbBact team)<br>'
+    elif review_status == 1:
+        webPage += '<br>Accepted (annotation has been reviewed by the dbBact team and accepted)<br>'
+    else:
+        webPage += '<br>NA<br>'
+
     webPage += '<h2>Sequences</h2>'
     webPage += draw_download_fasta_button(annotationid)
 
