@@ -554,9 +554,9 @@ def sequence_annotations(sequence):
             found_only_mismatch = True
             found_seq = True
             if len(close_seqs) > 1:
-                close_seqs = [cseq['sequence'] for cseq in close_seqs]
                 num_mismatches = [cseq['num_mismatches'] for cseq in close_seqs]
-                err, webpage = draw_sequences_annotations_compact(close_seqs, inexact_match=True, num_mismatches=num_mismatches)
+                seqs = [cseq['sequence'] for cseq in close_seqs]
+                err, webpage = draw_sequences_annotations_compact(seqs, inexact_match=True, num_mismatches=num_mismatches)
                 return webpage
             else:
                 sequence = close_seqs[0]['sequence']
@@ -2689,7 +2689,7 @@ def get_close_sequences(sequence, max_mismatches = 2):
     if httpResTax.status_code == requests.codes.ok:
         res = httpResTax.json()
         debug(2, 'Found %d close sequences' % len(res['similar_seqs']))
-        debug(2, str(res['similar_seqs']))
+        debug(1, str(res['similar_seqs']))
         return res['similar_seqs']
     debug('error encountered when trying to get close sequences for sequence %s' % sequence)
     return []
