@@ -765,7 +765,7 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
     if not inexact_match:
         webPage += '<h2>Annotations for %d sequences</h2>' % len(seqs)
     else:
-        webPage += '<h2>No exact match found</h2>' % len(seqs)
+        webPage += '<h2>No exact match found</h2>'
         seqs_details = ''
         for cseq in seqs:
             seqs_details += ('<tr><td><a href=%s target="_blank">%s</a></td></tr>' % (url_for('.sequence_annotations', sequence=cseq),  Markup.escape(cseq.upper())))
