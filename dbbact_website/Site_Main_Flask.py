@@ -554,10 +554,13 @@ def sequence_annotations(sequence):
             found_only_mismatch = True
             found_seq = True
             if len(close_seqs) > 1:
-                err, webpage = draw_sequences_annotations_compact(close_seqs, inexact_match=True)
+                close_seqs = [cseq['sequence'] for cseq in close_seqs]
+                num_mismatches = [cseq['num_mismatches'] for cseq in close_seqs]
+                err, webpage = draw_sequences_annotations_compact(close_seqs, inexact_match=True, num_mismatches=num_mismatches)
                 return webpage
             else:
-                sequence = close_seqs[0]
+                sequence = close_seqs[0]['sequence']
+                num_mismatches = close_seqs[0]['num_mismatches']
 
     # Get the taxonomy for the sequence
     rdata = {}
@@ -718,7 +721,7 @@ def draw_sequences_annotations(seqs):
     return '', webPage
 
 
-def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False, inexact_match=False):
+def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False, inexact_match=None, num_mismatches=None):
     '''Draw the webpage for annotations for a set of sequences
 
     Parameters
@@ -731,7 +734,8 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
         False to draw complete page
     inexact_match: bool, optional
         If True, results are for inexact matches to a given original sequence
-
+    num_mismatches: list of int or None, optional
+        if not None and inexcat_match is True, the number of mismatches for each sequence
 
     Returns
     -------
@@ -767,8 +771,12 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
     else:
         webPage += '<h2>No exact match found</h2>'
         seqs_details = ''
-        for cseq in seqs:
-            seqs_details += ('<tr><td><a href=%s target="_blank">%s</a></td></tr>' % (url_for('.sequence_annotations', sequence=cseq),  Markup.escape(cseq.upper())))
+        for i, cseq in enumerate(seqs):
+            if num_mismatches is not None:
+                cnum_mismatch = num_mismatches[i]
+            else:
+                cnum_mismatch = 'NA'
+            seqs_details += ('<tr><td><a href=%s target="_blank">%s</a></td><td>%s</td></tr>' % (url_for('.sequence_annotations', sequence=cseq),  Markup.escape(cseq.upper()), cnum_mismatch))
         webPage += render_template('seq-list-collapse.html', title='Inexact match sequences', seq_count=len(seqs), details=seqs_details)
     webPage += draw_group_annotation_details(annotations, seqannotations, term_info=term_info, ignore_exp=ignore_exp, sequences=seqs)
     if not draw_only_details:
@@ -2673,7 +2681,7 @@ def get_close_sequences(sequence, max_mismatches = 2):
         
     Returns
     -------
-    list of sequences that are close to the given sequence (empty if none found)
+    list of {'sequence': str, 'seq_id':int, 'mismatches': int} (one entery per similar sequence)
     '''
     debug(2, 'get_close_sequences for sequence %s' % sequence)
     rdata = {'sequence': sequence, 'max_mismatches': max_mismatches}
@@ -2681,7 +2689,7 @@ def get_close_sequences(sequence, max_mismatches = 2):
     if httpResTax.status_code == requests.codes.ok:
         res = httpResTax.json()
         debug(2, 'Found %d close sequences' % len(res['sequences']))
-        return res['sequences']
+        return res['similar_seqs']
     debug('error encountered when trying to get close sequences for sequence %s' % sequence)
     return []
 
