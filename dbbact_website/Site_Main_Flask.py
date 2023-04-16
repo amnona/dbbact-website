@@ -554,7 +554,7 @@ def sequence_annotations(sequence):
             found_only_mismatch = True
             found_seq = True
             if len(close_seqs) > 1:
-                err, webpage = draw_sequences_annotations_compact(close_seqs)
+                err, webpage = draw_sequences_annotations_compact(close_seqs, inexact_match=True)
                 return webpage
             else:
                 sequence = close_seqs[0]
@@ -718,7 +718,7 @@ def draw_sequences_annotations(seqs):
     return '', webPage
 
 
-def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False):
+def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False, inexact_match=False):
     '''Draw the webpage for annotations for a set of sequences
 
     Parameters
@@ -729,6 +729,8 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
     draw_only_details: bool, optional
         True to plot only the annotations part (no header/footer)
         False to draw complete page
+    inexact_match: bool, optional
+        If True, results are for inexact matches to a given original sequence
 
 
     Returns
@@ -760,7 +762,10 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
         webPage = ''
     else:
         webPage = render_header()
-    webPage += '<h2>Annotations for %d sequences</h2>' % len(seqs)
+    if not inexact_match:
+        webPage += '<h2>Annotations for %d sequences</h2>' % len(seqs)
+    else:
+        webPage += '<h2>No exact match found</h2> Annotations are for %d sequences with inexact match<br><br>' % len(seqs)
     webPage += draw_group_annotation_details(annotations, seqannotations, term_info=term_info, ignore_exp=ignore_exp, sequences=seqs)
     if not draw_only_details:
         webPage += render_template('footer.html')
