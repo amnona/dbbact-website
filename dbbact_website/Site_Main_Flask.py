@@ -534,15 +534,30 @@ def sequence_annotations(sequence):
     # first we check whether the sequence is in dbbact - if not, we'll try to trim it
     trim_msg = ''
     found_seq = test_if_sequence_exists(sequence)
+
+    # indicates if trimming was needed (in order to show the trim message)
     show_trim_msg = False
+
+    # indicates if only a <100% identity sequence was found (in order to show the mismatch message)
+    found_only_mismatch = False
 
     # if we didn't find any match, try to trim the sequence from known primers
     if not found_seq:
-        show_trim_msg = True
         trimmed, trim_msg = trim_primers_from_sequence(sequence)
         if trimmed is not None:
+            show_trim_msg = True
             sequence = trimmed
             found_seq = True
+    if not found_seq:
+        close_seqs = get_close_sequences(sequence)
+        if len(close_seqs) > 0:
+            found_only_mismatch = True
+            found_seq = True
+            if len(close_seqs) > 1:
+                err, webpage = draw_sequences_annotations_compact(close_seqs)
+                return webpage
+            else:
+                sequence = close_seqs[0]
 
     # Get the taxonomy for the sequence
     rdata = {}
@@ -2630,6 +2645,31 @@ def test_if_sequence_exists(seq, use_sequence_translator=True):
         if len(match_ids) > 0:
             return True
     return False
+
+
+def get_close_sequences(sequence, max_mismatches = 2):
+    '''Get sequences that are close to the given sequence
+    
+    Parameters
+    ----------
+    sequence: str
+        the sequence to search for ('ACGT')
+    max_mismatches: int, optional
+        the maximal number of mismatches to allow
+        
+    Returns
+    -------
+    list of sequences that are close to the given sequence (empty if none found)
+    '''
+    debug(2, 'get_close_sequences for sequence %s' % sequence)
+    rdata = {'sequence': sequence, 'max_mismatches': max_mismatches}
+    httpResTax = requests.get(dbbact_server_address + '/sequences/get_close_sequences', json=rdata)
+    if httpResTax.status_code == requests.codes.ok:
+        res = httpResTax.json()
+        debug(2, 'Found %d close sequences' % len(res['sequences'])
+        return res['sequences']
+    debug('error encountered when trying to get close sequences for sequence %s' % sequence)
+    return []
 
 
 def get_term_seq_scores(term, annotations=None, num_to_show=10):
