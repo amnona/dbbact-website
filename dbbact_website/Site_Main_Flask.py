@@ -768,7 +768,7 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
         webPage += '<h2>No exact match found</h2> Annotations are for %d sequences with inexact match<br><br>' % len(seqs)
         seqs_details = []
         for cseq in seqs:
-            seqs_details.append('<tr><a href=%s target="_blank">%s</a></tr>' % (url_for('.sequence', sequence=cseq), cseq))
+            seqs_details.append('<tr><a href=%s target="_blank">%s</a></tr>' % (url_for('.sequence_annotations', sequence=cseq),  Markup.escape(cseq)))
         webPage += render_template('seq-list-collapse.html', seq_count=len(seqs), details=seqs_details)
     webPage += draw_group_annotation_details(annotations, seqannotations, term_info=term_info, ignore_exp=ignore_exp, sequences=seqs)
     if not draw_only_details:
