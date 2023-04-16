@@ -601,6 +601,11 @@ def sequence_annotations(sequence):
     webPage = render_header(title='dbBact sequence annotation')
     webPage += render_template('seqinfo.html', sequence=sequence.upper(), taxonomy=taxStr, species_details=species_details, num_species_match=num_species_match)
 
+    if found_only_mismatch:
+        webPage += '<h2>Exact sequence was not found in dbBact</h2>'
+        webPage += '<p>However, a single sequence with a high similarity to your sequence was found in dbBact. '
+        webPage += 'Showing results for this sequence</p>'
+
     if show_trim_msg:
         if found_seq:
             webPage += '<h2>Sequence found after trimming primers: %s</h2>' % trim_msg
