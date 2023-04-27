@@ -2058,9 +2058,11 @@ def _get_color(word, font_size, position, orientation, font_path, random_state, 
     if word[0] == '-':
         cmap = mpl.cm.get_cmap('Oranges')
         rgba = cmap(float(0.4 + count / 40), bytes=True)
+        rgba = cmap(float(0.3 + count / 20), bytes=True)
     else:
         cmap = mpl.cm.get_cmap('Purples')
         rgba = cmap(float(0.4 + count / 40), bytes=True)
+        rgba = cmap(float(0.3 + count / 20), bytes=True)
 
     red = format(rgba[0], '02x')
     green = format(rgba[1], '02x')
