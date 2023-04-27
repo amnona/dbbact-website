@@ -2369,11 +2369,14 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     wpart += render_template('tabs.html')
 
     tterms = set()
-    wpart, tscores += draw_ontology_score_list(fscores, section_id='fscores', description='term enrichment score')
+    cpart, tscores += draw_ontology_score_list(fscores, section_id='fscores', description='term enrichment score')
+    wpart += cpart
     tterms.update(cterm for cterm,score in tscores)
-    wpart, tscores += draw_ontology_score_list(recall, section_id='recall', description='Fraction of dbbact annotations with this term covered by the query')
+    cpart, tscores += draw_ontology_score_list(recall, section_id='recall', description='Fraction of dbbact annotations with this term covered by the query')
+    wpart += cpart
     tterms.update(cterm for cterm,score in tscores)
-    wpart, tscores += draw_ontology_score_list(precision, section_id='precision', description='Fraction of annotations for the query sequences containing the term')
+    cpart, tscores += draw_ontology_score_list(precision, section_id='precision', description='Fraction of annotations for the query sequences containing the term')
+    wpart += cpart
     tterms.update(cterm for cterm,score in tscores)
     # add the term count tab, only for the terms listed in the fscore/precision/recall parts
     wpart += draw_ontology_score_list(term_count, section_id='term_count', description='Number of experiments containing the term',term_set=tterms)
