@@ -1926,7 +1926,7 @@ def draw_annotation_table(annotations, include_ratio=True):
     return ppart
 
 
-def draw_ontology_score_list(scores, section_id, description=None, max_terms=100):
+def draw_ontology_score_list(scores, section_id, description=None, max_terms=100, term_set=None):
     '''Create table entries for ontology terms sorted by score
 
     Parameters
@@ -1937,11 +1937,15 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
         the name of the section (for the tabs - i.e. 'recall' etc.)
     max_terms: int, optional
         maximal number of terms to add ot the list, or None to show all
+    term_set: set of str, optional
+        if not None, only show terms in this set
 
     Returns
     -------
     str
         the html code for the section
+    list of (str, float)
+        the terms and scores sorted by score (after using the max_terms and term_set filters)
     '''
     wpart = '<div id="%s" class="tab-pane" style="margin-top: 20px; margin-bottom: 20px;">\n' % section_id
     if description is not None:
@@ -1954,6 +1958,9 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
     data = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     if max_terms is not None:
         data = data[:max_terms]
+    
+    if term_set is not None:
+        data = [x for x in data if x[0] in term_set]
 
     for cterm, cscore in data:
         if cterm[0] == '-':
@@ -1964,7 +1971,7 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
         wpart += '<tr><td><a href=%s>%s</a></td><td>%f</td></tr>\n' % (url_for('.ontology_info', term=ctermlink), Markup.escape(cterm), cscore)
     wpart += '</table>\n'
     wpart += '</div>\n'
-    return wpart
+    return wpart, data
 
 
 @Site_Main_Flask_Obj.route('/annotation_seq_download/<int:annotationid>')
@@ -2361,10 +2368,15 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
 
     wpart += render_template('tabs.html')
 
-    wpart += draw_ontology_score_list(fscores, section_id='fscores', description='term enrichment score')
-    wpart += draw_ontology_score_list(recall, section_id='recall', description='Fraction of dbbact annotations with this term covered by the query')
-    wpart += draw_ontology_score_list(precision, section_id='precision', description='Fraction of annotations for the query sequences containing the term')
-    wpart += draw_ontology_score_list(term_count, section_id='term_count', description='Number of experiments containing the term')
+    tterms = set()
+    wpart, tscores += draw_ontology_score_list(fscores, section_id='fscores', description='term enrichment score')
+    tterms.update(cterm for cterm,score in tscores)
+    wpart, tscores += draw_ontology_score_list(recall, section_id='recall', description='Fraction of dbbact annotations with this term covered by the query')
+    tterms.update(cterm for cterm,score in tscores)
+    wpart, tscores += draw_ontology_score_list(precision, section_id='precision', description='Fraction of annotations for the query sequences containing the term')
+    tterms.update(cterm for cterm,score in tscores)
+    # add the term count tab, only for the terms listed in the fscore/precision/recall parts
+    wpart += draw_ontology_score_list(term_count, section_id='term_count', description='Number of experiments containing the term',term_set=tterms)
 
     # draw the annotation table
     # first we need to sort the annotations by total sequences from submitted list in each annotation
