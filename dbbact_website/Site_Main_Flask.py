@@ -1963,6 +1963,9 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
         data = [x for x in data if x[0] in term_set]
 
     for cterm, cscore in data:
+        if len(cterm) == 0:
+            debug(3, 'Empty term in ontology score list')
+            continue
         if cterm[0] == '-':
             ctermlink = cterm[1:]
             cterm = 'LOWER IN %s' % Markup.escape(ctermlink)
