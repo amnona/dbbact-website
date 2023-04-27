@@ -2379,7 +2379,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     wpart += cpart
     tterms.update(cterm for cterm,score in tscores)
     # add the term count tab, only for the terms listed in the fscore/precision/recall parts
-    cpart, tscores += draw_ontology_score_list(term_count, section_id='term_count', description='Number of experiments containing the term',term_set=tterms)
+    cpart, tscores = draw_ontology_score_list(term_count, section_id='term_count', description='Number of experiments containing the term',term_set=tterms)
     wpart += cpart
 
     # draw the annotation table
