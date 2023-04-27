@@ -2364,6 +2364,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     wpart += draw_ontology_score_list(fscores, section_id='fscores', description='term enrichment score')
     wpart += draw_ontology_score_list(recall, section_id='recall', description='Fraction of dbbact annotations with this term covered by the query')
     wpart += draw_ontology_score_list(precision, section_id='precision', description='Fraction of annotations for the query sequences containing the term')
+    wpart += draw_ontology_score_list(term_count, section_id='term_count', description='Number of experiments containing the term')
 
     # draw the annotation table
     # first we need to sort the annotations by total sequences from submitted list in each annotation
