@@ -1,0 +1,49 @@
+<style>
+  #tax-panel {
+    margin-left: 100px;
+    margin-right: 100px;
+  }
+  #tax-box {
+    padding: 20px;
+    overflow: auto;
+    font-size: 20px;
+  }
+
+ </style>
+
+<div id="seqlist-panel" class="panel panel-default">
+  <div class="panel-heading">
+    {{ title }}:
+  </div>
+
+  <div id="seqlist-box" class="panel-body">
+    Total sequences : {{seq_count}}
+    <br>
+    <button id="collapse-btn" data-toggle="collapse" data-target="#seqlist">Show sequences</button>
+    <br>
+    <div id="seqlist" class="collapse">
+      <table id="seq-list-seq-list-tbl" class="table responsive" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Sequence</th>
+          <th>Mismatches</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ details | safe}}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+
+<script type="text/javascript">
+  $(document).ready(function() {
+    $('#seq-list-seq-list-tbl').DataTable({'scrollX': true, 'autoWidth': true, 'paging': true, 'lengthMenu':[10, 25, 50, 100, -1], 'pageLength': 10, 'aaSorting': []});
+} );
+
+$('#seqlist').on('shown.bs.collapse', function() {
+   $('#seq-list-seq-list-tbl').DataTable().columns.adjust().draw();
+ });
+</script>

@@ -534,15 +534,33 @@ def sequence_annotations(sequence):
     # first we check whether the sequence is in dbbact - if not, we'll try to trim it
     trim_msg = ''
     found_seq = test_if_sequence_exists(sequence)
+
+    # indicates if trimming was needed (in order to show the trim message)
     show_trim_msg = False
+
+    # indicates if only a <100% identity sequence was found (in order to show the mismatch message)
+    found_only_mismatch = False
 
     # if we didn't find any match, try to trim the sequence from known primers
     if not found_seq:
-        show_trim_msg = True
         trimmed, trim_msg = trim_primers_from_sequence(sequence)
         if trimmed is not None:
+            show_trim_msg = True
             sequence = trimmed
             found_seq = True
+    if not found_seq:
+        close_seqs = get_close_sequences(sequence)
+        if len(close_seqs) > 0:
+            found_only_mismatch = True
+            found_seq = True
+            if len(close_seqs) > 1:
+                num_mismatches = [cseq['num_mismatches'] for cseq in close_seqs]
+                seqs = [cseq['sequence'] for cseq in close_seqs]
+                err, webpage = draw_sequences_annotations_compact(seqs, inexact_match=True, num_mismatches=num_mismatches)
+                return webpage
+            else:
+                sequence = close_seqs[0]['sequence']
+                num_mismatches = close_seqs[0]['num_mismatches']
 
     # Get the taxonomy for the sequence
     rdata = {}
@@ -584,6 +602,12 @@ def sequence_annotations(sequence):
     # Create the results page
     # the sequence info part, with species details
     webPage = render_header(title='dbBact sequence annotation')
+
+    if found_only_mismatch:
+        webPage += '<h2>Exact sequence was not found in dbBact</h2>'
+        webPage += '<p>However, a single sequence with a high similarity to your sequence was found in dbBact. '
+        webPage += 'Showing results for this sequence</p>'
+
     webPage += render_template('seqinfo.html', sequence=sequence.upper(), taxonomy=taxStr, species_details=species_details, num_species_match=num_species_match)
 
     if show_trim_msg:
@@ -698,7 +722,7 @@ def draw_sequences_annotations(seqs):
     return '', webPage
 
 
-def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False):
+def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False, inexact_match=None, num_mismatches=None):
     '''Draw the webpage for annotations for a set of sequences
 
     Parameters
@@ -709,7 +733,10 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
     draw_only_details: bool, optional
         True to plot only the annotations part (no header/footer)
         False to draw complete page
-
+    inexact_match: bool, optional
+        If True, results are for inexact matches to a given original sequence
+    num_mismatches: list of int or None, optional
+        if not None and inexcat_match is True, the number of mismatches for each sequence
 
     Returns
     -------
@@ -740,7 +767,18 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
         webPage = ''
     else:
         webPage = render_header()
-    webPage += '<h2>Annotations for %d sequences</h2>' % len(seqs)
+    if not inexact_match:
+        webPage += '<h2>Annotations for %d sequences</h2>' % len(seqs)
+    else:
+        webPage += '<h2>No exact match found</h2>'
+        seqs_details = ''
+        for i, cseq in enumerate(seqs):
+            if num_mismatches is not None:
+                cnum_mismatch = num_mismatches[i]
+            else:
+                cnum_mismatch = 'NA'
+            seqs_details += ('<tr><td><a href=%s target="_blank">%s</a></td><td>%s</td></tr>' % (url_for('.sequence_annotations', sequence=cseq),  Markup.escape(cseq.upper()), cnum_mismatch))
+        webPage += render_template('seq-list-collapse.html', title='Inexact match sequences', seq_count=len(seqs), details=seqs_details)
     webPage += draw_group_annotation_details(annotations, seqannotations, term_info=term_info, ignore_exp=ignore_exp, sequences=seqs)
     if not draw_only_details:
         webPage += render_template('footer.html')
@@ -865,6 +903,15 @@ def annotation_info(annotationid):
         webPage += '<br>Annotation not flagged as potentially problematic<br>'
 
     webPage += draw_flag_annotation_button(annotationid)
+
+    webPage += '<h2>Review status</h2>'
+    review_status = annotation.get('review_status', -1)
+    if review_status == 0:
+        webPage += '<br>Pending review (annotation has not been reviewed yet by the dbBact team)<br>'
+    elif review_status == 1:
+        webPage += '<br>Accepted (annotation has been reviewed by the dbBact team and accepted)<br>'
+    else:
+        webPage += '<br>NA<br>'
 
     webPage += '<h2>Sequences</h2>'
     webPage += draw_download_fasta_button(annotationid)
@@ -1817,10 +1864,6 @@ def draw_annotation_table(annotations, include_ratio=True):
     -------
     str: the HTML part for the annotations table
     '''
-    # wpart = '<div id="annot-table" class="tab-pane in active" style="margin-top: 20px; margin-bottom: 20px;">\n'
-
-    # the table header and css
-    # wpart += render_template('annottable.html')
     wpart = ''
     for dataRow in annotations:
         wpart += '  <tr>'
@@ -1844,13 +1887,6 @@ def draw_annotation_table(annotations, include_ratio=True):
         # add the annotation region
         wpart += '<td>%s</td>' % Markup.escape(dataRow['primer'])
 
-        # add the number of flags
-        if len(dataRow['flags']) > 0:
-            flags = '%s' % len(dataRow['flags'])
-        else:
-            flags = 'No'
-        wpart += '<td>%s</td>' % Markup.escape(flags)
-
         # add the sequences
         annotationid = dataRow.get('annotationid', -1)
         num_sequences = dataRow.get('num_sequences', '?')
@@ -1864,6 +1900,24 @@ def draw_annotation_table(annotations, include_ratio=True):
             observed_sequences = '?'
             sequences_string = '%s' % num_sequences
         wpart += "<td><a href=%s>%s</a></td>" % (url_for('.annotation_seqs', annotationid=annotationid), Markup.escape(sequences_string))
+
+        # add the annotation review status
+        review_status = dataRow.get('review_status', -1)
+        if review_status == 0:
+            review_status_str = 'pending'
+        elif review_status == 1:
+            review_status_str = 'approved'
+        else:
+            review_status_str = 'NA'
+        wpart += '<td>%s</td>' % Markup.escape(review_status_str)
+
+        # add the number of flags
+        if len(dataRow['flags']) > 0:
+            flags = '%s' % len(dataRow['flags'])
+        else:
+            flags = 'No'
+        wpart += '<td>%s</td>' % Markup.escape(flags)
+
         wpart += '</tr>\n'
     # wpart += '</table>\n'
     # wpart += '</div>\n'
@@ -1872,7 +1926,7 @@ def draw_annotation_table(annotations, include_ratio=True):
     return ppart
 
 
-def draw_ontology_score_list(scores, section_id, description=None, max_terms=100):
+def draw_ontology_score_list(scores, section_id, description=None, max_terms=100, term_set=None):
     '''Create table entries for ontology terms sorted by score
 
     Parameters
@@ -1883,11 +1937,15 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
         the name of the section (for the tabs - i.e. 'recall' etc.)
     max_terms: int, optional
         maximal number of terms to add ot the list, or None to show all
+    term_set: set of str, optional
+        if not None, only show terms in this set
 
     Returns
     -------
     str
         the html code for the section
+    list of (str, float)
+        the terms and scores sorted by score (after using the max_terms and term_set filters)
     '''
     wpart = '<div id="%s" class="tab-pane" style="margin-top: 20px; margin-bottom: 20px;">\n' % section_id
     if description is not None:
@@ -1900,8 +1958,14 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
     data = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     if max_terms is not None:
         data = data[:max_terms]
+    
+    if term_set is not None:
+        data = [x for x in data if x[0] in term_set]
 
     for cterm, cscore in data:
+        if len(cterm) == 0:
+            debug(3, 'Empty term in ontology score list')
+            continue
         if cterm[0] == '-':
             ctermlink = cterm[1:]
             cterm = 'LOWER IN %s' % Markup.escape(ctermlink)
@@ -1910,7 +1974,7 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
         wpart += '<tr><td><a href=%s>%s</a></td><td>%f</td></tr>\n' % (url_for('.ontology_info', term=ctermlink), Markup.escape(cterm), cscore)
     wpart += '</table>\n'
     wpart += '</div>\n'
-    return wpart
+    return wpart, data
 
 
 @Site_Main_Flask_Obj.route('/annotation_seq_download/<int:annotationid>')
@@ -1997,9 +2061,11 @@ def _get_color(word, font_size, position, orientation, font_path, random_state, 
     if word[0] == '-':
         cmap = mpl.cm.get_cmap('Oranges')
         rgba = cmap(float(0.4 + count / 40), bytes=True)
+        rgba = cmap(float(0.3 + count / 20), bytes=True)
     else:
         cmap = mpl.cm.get_cmap('Purples')
         rgba = cmap(float(0.4 + count / 40), bytes=True)
+        rgba = cmap(float(0.3 + count / 20), bytes=True)
 
     red = format(rgba[0], '02x')
     green = format(rgba[1], '02x')
@@ -2307,9 +2373,19 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
 
     wpart += render_template('tabs.html')
 
-    wpart += draw_ontology_score_list(fscores, section_id='fscores', description='term enrichment score')
-    wpart += draw_ontology_score_list(recall, section_id='recall', description='Fraction of dbbact annotations with this term covered by the query')
-    wpart += draw_ontology_score_list(precision, section_id='precision', description='Fraction of annotations for the query sequences containing the term')
+    tterms = set()
+    cpart, tscores = draw_ontology_score_list(fscores, section_id='fscores', description='term enrichment score')
+    wpart += cpart
+    tterms.update(cterm for cterm,score in tscores)
+    cpart, tscores = draw_ontology_score_list(recall, section_id='recall', description='Fraction of dbbact annotations with this term covered by the query')
+    wpart += cpart
+    tterms.update(cterm for cterm,score in tscores)
+    cpart, tscores = draw_ontology_score_list(precision, section_id='precision', description='Fraction of annotations for the query sequences containing the term')
+    wpart += cpart
+    tterms.update(cterm for cterm,score in tscores)
+    # add the term count tab, only for the terms listed in the fscore/precision/recall parts
+    cpart, tscores = draw_ontology_score_list(term_count, section_id='term_count', description='Number of experiments associating the term to the sequence',term_set=tterms, max_terms=None)
+    wpart += cpart
 
     # draw the annotation table
     # first we need to sort the annotations by total sequences from submitted list in each annotation
@@ -2614,6 +2690,32 @@ def test_if_sequence_exists(seq, use_sequence_translator=True):
         if len(match_ids) > 0:
             return True
     return False
+
+
+def get_close_sequences(sequence, max_mismatches = 2):
+    '''Get sequences that are close to the given sequence
+    
+    Parameters
+    ----------
+    sequence: str
+        the sequence to search for ('ACGT')
+    max_mismatches: int, optional
+        the maximal number of mismatches to allow
+        
+    Returns
+    -------
+    list of {'sequence': str, 'seq_id':int, 'mismatches': int} (one entery per similar sequence)
+    '''
+    debug(2, 'get_close_sequences for sequence %s' % sequence)
+    rdata = {'sequence': sequence, 'max_mismatches': max_mismatches}
+    httpResTax = requests.get(dbbact_server_address + '/sequences/get_close_sequences', json=rdata)
+    if httpResTax.status_code == requests.codes.ok:
+        res = httpResTax.json()
+        debug(2, 'Found %d close sequences' % len(res['similar_seqs']))
+        debug(1, str(res['similar_seqs']))
+        return res['similar_seqs']
+    debug('error encountered when trying to get close sequences for sequence %s' % sequence)
+    return []
 
 
 def get_term_seq_scores(term, annotations=None, num_to_show=10):
