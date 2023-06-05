@@ -15,6 +15,9 @@ recentLoginUsers = []
 app = Flask(__name__)
 app.register_blueprint(Site_Main_Flask_Obj)
 
+# prometheus monitoring
+metrics = PrometheusMetrics(app)
+
 
 def gunicorn(debug_level=6):
     '''The entry point for running the api server through gunicorn (http://gunicorn.org/)
