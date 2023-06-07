@@ -2111,7 +2111,8 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
         for ckey, cval in fscores.items():
             new_scores[ckey] = fscores[ckey] / maxval
     fscores = new_scores
-    print('** fscores: %s' % fscores)
+
+    debug(3, '** fscores: %s' % fscores)
 
     # wc = WordCloud(background_color="white", relative_scaling=0.5, stopwords=set(),colormap="Blues")
     if local_save_name is not None:
@@ -2124,6 +2125,7 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
         wordcloud = wc.generate(fscores)
     elif isinstance(fscores, dict):
         debug(2, 'generating from frequency dict')
+        debug(3, '** fd fscores: %s' % fscores)
         wordcloud = wc.generate_from_frequencies(fscores)
     else:
         debug(4, 'unknown type for generate_wordcloud!')
