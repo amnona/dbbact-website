@@ -2714,7 +2714,7 @@ def get_close_sequences(sequence, max_mismatches = 2):
         debug(2, 'Found %d close sequences' % len(res['similar_seqs']))
         debug(1, str(res['similar_seqs']))
         return res['similar_seqs']
-    debug('error encountered when trying to get close sequences for sequence %s' % sequence)
+    debug(7, 'error encountered when trying to get close sequences for sequence %s' % sequence)
     return []
 
 
