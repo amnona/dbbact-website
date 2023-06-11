@@ -2125,7 +2125,6 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
         wordcloud = wc.generate(fscores)
     elif isinstance(fscores, dict):
         debug(2, 'generating from frequency dict')
-        debug(3, '** fd fscores: %s' % fscores)
         wordcloud = wc.generate_from_frequencies(fscores)
     else:
         debug(4, 'unknown type for generate_wordcloud!')
