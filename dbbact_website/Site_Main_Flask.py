@@ -2104,15 +2104,15 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
         return ''
 
     # normalize the fractions to a scale max=1
+    # also sanitize the terms to remove new lines (wordcloud doesn't like them)
     new_scores = {}
     if fscores is not None:
         maxval = max(fscores.values())
         debug(1, 'normalizing fscores. maxval is %f' % maxval)
         for ckey, cval in fscores.items():
-            new_scores[ckey] = fscores[ckey] / maxval
+            sanitized_ckey = ckey.replace('\n', ' ')
+            new_scores[sanitized_ckey] = fscores[ckey] / maxval
     fscores = new_scores
-
-    debug(3, '** fscores: %s' % fscores)
 
     # wc = WordCloud(background_color="white", relative_scaling=0.5, stopwords=set(),colormap="Blues")
     if local_save_name is not None:
