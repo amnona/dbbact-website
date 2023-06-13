@@ -8,19 +8,20 @@ import requests
 import re
 
 import matplotlib as mpl
+mpl.use('Agg')
+
 from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app
 
 from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
-from .term_pairs import get_enriched_term_pairs, get_enrichment_score
 from . import enrichment
-
+import calour as ca
+import dbbact_calour.dbbact
 
 Site_Main_Flask_Obj = Blueprint('Site_Main_Flask_Obj', __name__, template_folder='templates')
 
 
 # the dbbact rest-api server address
 dbbact_server_address = get_dbbact_server_address()
-
 
 @Site_Main_Flask_Obj.route('/', methods=['POST', 'GET'])
 def landing_page():
@@ -2022,7 +2023,8 @@ def download_fscores_sequences_form():
 
     # get the experiment annotations
     ignore_exp = []
-    fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     output = 'term\tf-score\trecall\tprecision\tcount\n'
     for cterm,cfscore in reduced_f.items():
@@ -2128,6 +2130,7 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
         wordcloud = wc.generate_from_frequencies(fscores)
     else:
         debug(4, 'unknown type for generate_wordcloud!')
+        return None
 
     fig = plt.figure()
     plt.imshow(wordcloud)
@@ -2364,7 +2367,8 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     else:
         num_anno = len(annotations)
     debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (num_anno, num_seqanno, ignore_exp, num_seqs))
-    fscores, recall, precision, term_count, reduced_f = get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     # draw the wordcloud for the group terms
     if include_word_cloud is True:
@@ -2412,28 +2416,6 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
 
     wpart += '    </div>\n'
     wpart += '  </div>\n'
-    return wpart
-
-
-@Site_Main_Flask_Obj.route('/termpairtest')
-def term_pair_test():
-    seq = 'TACGGAGGGTGCGAGCGTTAATCGGAATAACTGGGCGTAAAGGGCACGCAGGCGGTGACTTAAGTGAGGTGTGAAAGCCCCGGGCTTAACCTGGGAATTGCATTTCATACTGGGTCGCTAGAGTACTTTAGGGAGGGGTAGAATTCCACG'
-    seq = 'TACGGAGGATCCGAGCGTTATCCGGATTTATTGGGTTTAAAGGGAGCGTAGATGGATGTTTAAGTCAGTTGTGAAAGTTTGCGGCTCAACCGTAAAATTGCAGTTGATACTGGATGTCTTGAGTGCAGTTGAGGCAGGCGGAATTCGTGG'
-    seq = 'TACGTAGGGTGCGAGCGTTGTCCGGAATTATTGGGCGTAAAGGGCTTGTAGGCGGTTTGTCGCGTCTGCCGTGAAATCCTCTGGCTTAACTGGGGGCGTGCGGTGGGTACGGGCAGGCTTGAGTGCGGTAGGGGAGACTGGAACTCCTGG'
-    rdata = {}
-    rdata['sequence'] = seq
-    httpRes = requests.get(dbbact_server_address + '/sequences/get_annotations', json=rdata)
-
-    annotations = httpRes.json().get('annotations')
-    term_scores = get_enriched_term_pairs(annotations)
-    wordcloud_image = draw_cloud(term_scores)
-    # wordcloud_image = draw_cloud(term_scores, num_high_term=num_high_term, num_low_term=num_low_term, term_frac=term_frac)
-    wordcloudimage = urllib.parse.quote(wordcloud_image)
-    wpart = ''
-    if wordcloudimage:
-        wpart += render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(wordcloud_image))
-    else:
-        wpart += '<p></p>'
     return wpart
 
 
