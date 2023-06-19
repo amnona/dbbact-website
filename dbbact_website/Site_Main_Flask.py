@@ -2923,3 +2923,8 @@ def draw_highlow_sequences_info(seqinfo_high, seqinfo_low, seqinfo_common):
 
     webPage = render_template('seqlist-highlow.html', datalow=datalow, datahigh=datahigh, datacommon=datacommon)
     return webPage
+
+@Site_Main_Flask_Obj.route('/interactive', methods=['POST', 'GET'])
+def interactive():
+    webPage = render_template('interactive.html')
+    return webPage
