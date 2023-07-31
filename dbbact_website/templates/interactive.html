@@ -1,343 +1,42 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>dbBact homepage</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
-    <style>
-      body {
-        margin: 20px;
-      }
-      #main {
-      }
-      #menu {
-        width: 275px;
-        height: 100px;
-        float: left;
-        overflow: auto;
-        display: inline-block;
-        padding: 10px;
-      }
-      #search-title {
-        height: 100px;
-        width: calc(100% - 550px);
-        /*margin-left: auto; margin-right: auto;*/
-        clear: both;
-        overflow: hidden;
-        display: inline-block;
-        text-align: center;
-      }
-      #statistics-title {
-        width: 200px;
-        float: right;
-        overflow: auto;
-        display: inline-block;
-        text-align: right;
-        padding: 10px;
-      }
-      #statistics {
-        width: 75px;
-        float: right;
-        overflow: auto;
-        display: inline-block;
-        padding: 10px;
-      }
-      #search-form {
-        clear: both;
-        overflow: auto;
-        margin-left: 100px;
-        margin-right: 100px;
-        margin-top: 40px;
-        margin-bottom: 40px;
-        padding: 20px;
-      }
-      #botMenu {
-        margin-left: 120px;
-        margin-right: 120px;
-        overflow: auto;
-      }
-    #footerOpenu {
-        position: absolute;
-        bottom: 30px;
-        width: 100%;
-    }
-    </style>
-
-    <!-- google analytics tracking code -->
+<head>
+    <title>Interactive biom table analysis</title>
     <script>
-      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
-
-        
-      ga('create', 'UA-91412701-1', 'auto');
-      ga('send', 'pageview');
-        
-     function fileBrowse()
-     {
-         var textObj = document.getElementById('tableFileDisplayTb');
-         var hiddenObj = document.getElementById('tableFile');
-         hiddenObj.click();
-     }
-        
-     function alertFilename()
-     {
-        var thefile = document.getElementById('tableFile');
-        var textObj = document.getElementById('tableFileDisplayTb'); 
-        textObj.value = thefile.value.split(/(\\|\/)/g).pop();
-     }
-        
-     function validateForm()
-     {
-        var tableFileId1 = document.getElementById('tableFileDisplayTb1');
-        var metadataFileId2 = document.getElementById('metadataFileDisplayTb2');
-         
-        if( fastaFileId1.value.trim().length == 0 && fastaFileId2.value.trim().length == 0 )
-        {
-            alert('Please select input table file and metadata file');
-            return false;
-        }    
-        loadingFunc();
-        return true;
-    }
-        
-    function loadingFunc(){
-        document.getElementById("divContId").style.display = "none";
-        document.getElementById("divWaitId").style.display = "block";
-    }//preloader
-        
-    function tablefileBrowse1()
-    {
-        var textObj = document.getElementById('tableFileDisplayTb1');
-        var hiddenObj = document.getElementById('table');
-        hiddenObj.click();
-    }
-        
-    function alerttableFilename1()
-    {
-        var thefile = document.getElementById('table');
-        var textObj = document.getElementById('tableFileDisplayTb1'); 
-        textObj.value = thefile.value.split(/(\\|\/)/g).pop();
-    }
-
-    function metadatafileBrowse2()
-    {
-        var textObj = document.getElementById('metadataFileDisplayTb2');
-        var hiddenObj = document.getElementById('metadata');
-        hiddenObj.click();
-    }
-        
-    function alertmetadataFilename2()
-    {
-        var thefile = document.getElementById('metadata');
-        var textObj = document.getElementById('metadataFileDisplayTb2'); 
-        textObj.value = thefile.value.split(/(\\|\/)/g).pop();
-    }
-        
+        function validateForm() {
+            var tableFile = document.getElementById("table-file").value;
+            var metadataFile = document.getElementById("metadata-file").value;
+            if (tableFile == "" || metadataFile == "") {
+                alert("Please select both a table file and a metadata file.");
+                return false;
+            }
+        }
     </script>
-  </head>
-  <body>
-    <div id="divWaitId" style="display: none; cursor: wait;">
-    <img style="position: absolute;top: 50%;left: 50%;width: 200px;height: 200px;margin-top: -100px;margin-left: -100px;" src='static/loading.gif'>        
-    </div>                      
-    </div>                    
-    <div id="divContId">
-        
-    <table style="padding:0;width:100%;background-color:#006e98;margin-right:8px;margin-left:8px;">
-    <tr height="10">
-    <td colspan="4"></td>
-    </tr>
-    <tr height="10">
-        <td width="17%"><img src='static/opLogo.png'></td>
-        <td width="66%"><center><img src='static/dbBact.png'></center></td> 
-        
-        <td style="min-width:200px;width: auto !important;width:200px;" width="10%">
-        <font face="arial" size=4 color="white">
-        Associations:<br>
-        Annotations:<br>
-        Sequences:<br>
-        Experiments:<br>
-        </font>
-        </td>
-        <td width="7%">
-        <font face="arial" size=4 color="white">
-        {{numSeqAnnot}}<br>
-        <a style="color:white" href={{ url_for('.annotations_list') }}>{{numAnnot}}</a><br>
-        {{numSeq}}<br>
-        <a style="color:white"  href={{ url_for('.experiments_list') }}>{{numExp}}</a>
-        </font>
-        </td>
-    </tr>
-    <tr height="20">
-    <td colspan="4"></td>
-    </tr>
-    <tr height="10">
-    <td colspan="4"><font face="arial" size=4 color="white"><center>dbBact is still under development. We value your comments and suggestions. Please email us at info@dbbact.org</center></font></td>
-    </tr>
-    <tr height="10">
-    <td colspan="4"></td>
-    </tr>
-    </table>
-    
-    <font face="arial" color="black">
-    <b>
-    <table style="width:100%;background-color:#d3e5ef;margin-right:8px;margin-left:8px;">
-    <tr height="5"><td colspan="7"></td></tr>
-    <tr>
-    <td style="width:1%;background-color:#d3e5ef" height="20" colspan="1"></td>
-        
-    
-    <td style="min-width:150px;width: auto !important;width:150px;background-color:#d3e5ef" height="20" colspan="1"><a style="color:black" href='reset_password'>Reset Password</a></td>
-    <td style="min-width:165px;width: auto !important;width:165px;background-color:#d3e5ef" height="20" colspan="1"><a style="color:black" href='main'>Sequence Search</a></td>
-    <td style="min-width:206px;width: auto !important;width:206px;background-color:#d3e5ef" height="20" colspan="1"><a style="color:black" href='http://api.dbbact.org/docs'>REST-API Documentation</a></td>
-    <td style="min-width:110px;width: auto !important;width:110px;background-color:#d3e5ef" height="20" colspan="1"><a style="color:black" href='about'>About Us</a></td>
-    <td style="min-width:140px;width: auto !important;width:140px;background-color:#d3e5ef" height="20" colspan="1"></td>
-    <td style="width:70%;background-color:#d3e5ef" height="20" colspan="1"></td>    
-    </tr>
-    <tr height="5"></tr>
-    </table>
-    </b>
-    </font>
-      
-   <font face="arial" size="5">
-    <form onsubmit="return validateForm();" action='interactive_results' method='post' enctype = "multipart/form-data">
-      <input type = "hidden" name = "example" id="exampleId" value=""/>  
-    
-      <table style="width:90%;margin-right:5%;margin-left:5%;">
-        <tr height="70px" style="background-color:white">
-            <td colspan="1"></td>
-        </tr>
-     </table>
-     <table border="0" cellSpacing="0"
-        style="table-layout: fixed; width:90%;margin-right:5%;margin-left:5%; BORDER: #A1BCD1 3px solid; BORDER-COLLAPSE: collapse; background-color:#EAF0F8" >
-    <THEAD>
-            <tr height="0" style="display: none; ">
-                <th></th>
-                <th></th> 
-                <th></th>
-                <th></th>
-                <th></th> 
-                <th></th>
-                <th></th>
-                <th></th> 
-                <th></th>
-                <th></th>
-            </tr>
-    </THEAD>
-    <TBODY>
-        <tr style="height:20px">
-            <td colspan="10"></td>
-        </tr>
-        <tr style="height:60px">
-            <td colspan="1"></td>
-            <td colspan="8">Interactive biom/qza table analysis:</td>
-            <td colspan="1"></td>
-        </tr>
-        <tr style="height:100px;background-color:#EAF0F8;">
-            <td colspan="1"></td>
-            <td colspan="3" style="min-width:400px;width: auto !important;width:400px;">Upload input table (qiime2 (.qza) or biom format (.bion)):</td>
-            <td colspan="4"><input type='text' id='tableFileDisplayTb1' name='table file name' class="form-control input-lg" style='width: calc(100% - 40px); margin: 20px; overflow: auto; border: 1px solid black;' readonly></td>
-            <td colspan="1">
-                <input type="file" id="table" name="table" style="display:none;" onchange="alerttableFilename1()" />
-                <input type="button" id="tableBrowseBut1" value="browse"  onClick="tablefileBrowse1();"/></td>
-            <td colspan="1"></td>
-        </tr>
-        <tr style="height:30px;background-color:#EAF0F8;">
-            <td colspan="10"></td>
-        </tr>
-        <tr style="height:100px;background-color:#EAF0F8;">
-            <td colspan="1"></td>
-            <td colspan="3">Metadata file (tab delimited):</td>
-            <td colspan="4"><input type='text' id='metadataDisplayTb2' name='file name' class="form-control input-lg" style='width: calc(100% - 40px); margin: 20px; overflow: auto; border: 1px solid black;' readonly></td>
-            <td colspan="1">
-                <input type="file" id="metadata" name="metadata" style="display:none;" onchange="alertmetadataFilename2()" />
-                <input type="button" id="metadataBrowseBut2" value="browse"  onClick="metadatafileBrowse2();"/></td>
-            <td colspan="1"></td>
-        </tr>
-        <tr style="height:30px;background-color:#EAF0F8;">
-            <td colspan="10"></td>
-        </tr>
-        <tr style="height:30px">
-            <td colspan="10"></td>
-        </tr>
-        <tr style="height:70px">
-            <td colspan="1"></td>
-            <td colspan="8">
-            <center><input type="image" src="static/searchBut.png" alt="Submit Form" style="width:auto ; height:40;" /></center>
-            </td>
-            <td colspan="1"></td>
-        </tr>
-        <tr style="height:70px">
-            <td colspan="1"></td>
-            <td colspan="8" colspan="3">
-            <center><a onclick="loadingFunc();" href='enrichment_results?example=true'><u>Or click here for an example</u></a></center>
-            </td>
-            <td colspan="1"></td>
-            </tr>
-            <tr style="height:30px">
-                <td colspan="10"></td>
-            </tr>
-        </tr>
-        </TBODY>
-        </table>
-        <table style="width:90%;margin-right:5%;margin-left:5%;">    
-            <tr height="50" style="background-color:white">
-                <td colspan="10"></td>
-            </tr>
-            <tr height="100" style="background-color:white">
-                <td colspan="10"><center><a href="https://www.openu.ac.il/home/shental/indexGroup.html"><img src='static/misdarLogo.jpg' /></a></center></td>
-            </tr>
-        </table>
-        
-    </form>
-    </font>
-    
-    <!-- =======    
-    <div id="main">
-        <div id="search-form" class="panel panel-default">
-            <form action="search_results" method="post" enctype="multipart/form-data">
-              <p><big>Enter an amplicon sequence, ontology term or taxonomic name to search for:</big></p>
-              <input type='text' name='sequence' class="form-control input-lg" style='width: calc(100% - 40px); margin: 20px; overflow: auto;'>
-              <p><big>Or upload a FASTA file:</big></p>
-              <input type="file" name="fasta file" style="width: calc(100% - 40px); margin: 20px;">
-              <center><button type="submit" id="searchBut" class="btn-primary btn-lg" style="margin: 20px;"><i class="glyphicon glyphicon-search"></i> Search</button></center>
-              <center><a href='search_results?sequence=tacggagggtgcgagcgttaatcggaataactgggcgtaaagggcacgcaggcggtgacttaagtgaggtgtgaaagccccgggcttaacctgggaattgcatttcatactgggtcgctagagtactttagggaggggtagaattccacg'><big>Or click here for an example</big></a></center>
-            </form>
-        </div>
-            <form name="enrichment analysis" action="enrichment" method="GET">
-                <div align="center">
-                    <input type="image" src="static/button_enrichment.png" name="enrichment" style="height:70px;"">
-                </div>
-            </form>
-      <div id="botMenu">
-        <p><center>For more comprehensive analysis using dbBact and for adding annotations, get <a href="https://github.com/amnona/calour" target="_blank"><b>Calour</b>, the microbiome heatmap visualization and analysis tool</a>.</center></p>
-      </div>
+</head>
+<body>
+    <h1>Step 1: Upload the reads table and metadata file</h1>
+    <div>
+        <!-- <form action="interactive_metadata_select" onsubmit="return validateForm()" method='post' enctype = "multipart/form-data"> -->
+        <form action="interactive_experiment_get_data" onsubmit="return validateForm()" method='post' enctype = "multipart/form-data">
+            <h2>Reads table</h2>
+            The denoinsed reads table (.biom or qiime2 .qza).<br>
+            Reads must be left trimmed to begin with one of the dbBact primers (V1/V3/V4).<br><br>
+            <label for="table-file">Table file:</label>
+            <input type="file" id="table-file" name="table-file" accept=".qza,.biom"><br><br>
+
+            <h2>Sample metadata</h2>
+            A tab-separated file with the per-sample metadata.<br>
+            First column should cotain the sample name (correspondinh to the sample names in the reads table)<br><br>
+            <label for="metadata-file">Metadata file:</label>
+            <input type="file" id="metadata-file" name="metadata-file" accept=".tsv,.txt"><br><br>
+
+            <h2>Experiment name</h2>
+            A name to be associated with this dataset (optional)<br><br>
+            <label for="experiment_name">Experiment name (optional):</label>
+            <input type="text" id="experiment_name" name="experiment_name"><br><br>
+
+            <input type="submit" value="Submit">
         </form>
-            </div>
-        </div>
--->
     </div>
-    </body>
+</body>
 </html>
-<!-- =======
-      <div id="search-form" class="panel panel-default">
-        <form action="search_results" method="post" enctype="multipart/form-data">
-          <p><big>Enter an amplicon sequence, ontology term or taxonomic name to search for:</big></p>
-          <input type='text' name='sequence' class="form-control input-lg" style='width: calc(100% - 40px); margin: 20px; overflow: auto;'>
-          <p><big>Or upload a FASTA file:</big></p>
-          <input type="file" name="fasta file" style="width: calc(100% - 40px); margin: 20px;">
-          <center><button type="submit" id="searchBut" class="btn-primary btn-lg" style="margin: 20px;"><i class="glyphicon glyphicon-search"></i> Search</button></center>
-          <center><a href='search_results?sequence=tacggagggtgcgagcgttaatcggaataactgggcgtaaagggcacgcaggcggtgacttaagtgaggtgtgaaagccccgggcttaacctgggaattgcatttcatactgggtcgctagagtactttagggaggggtagaattccacg'><big>Or click here for an example</big></a></center>
-        </form>
-      </div>
-      <div id="botMenu">
-        <p><center>For more comprehensive analysis using dbBact and for adding annotations, get <a href="https://github.com/amnona/calour" target="_blank"><b>Calour</b>, the microbiome heatmap visualization and analysis tool</a>.</center></p>
-      </div>
-    </div>
-    <div style="text-align: center; margin: 20px;">
-      <p>&copy; 2017 University of California, San Diego</p>
-    </div>
-  </body>
-</html>
- -->

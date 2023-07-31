@@ -10,49 +10,62 @@
     overflow: auto;
   }
 </style>
-    <button id="collapse-btn-high" data-toggle="collapse" data-target="#seqlisthigh">Positive-associated sequences</button>
-    <button id="collapse-btn-low" data-toggle="collapse" data-target="#seqlistlow">Negative-associated sequences</button>
-    <button id="collapse-btn-common" data-toggle="collapse" data-target="#seqlistcommon">common sequences</button>
+
+    <button id="collapse-btn-high" data-bs-toggle="collapse" data-bs-target="#seqlisthigh">Positive-associated sequences</button>
+    <button id="collapse-btn-low" data-bs-toggle="collapse" data-bs-target="#seqlistlow">Negative-associated sequences</button>
+    <button id="collapse-btn-common" data-bs-toggle="collapse" data-bs-target="#seqlistcommon">common sequences</button>
     <br>
     <div id="seqlisthigh" class="collapse">
       <h2> Top positive-associated sequence</h2>
-      <table id="seq-list-tbl" style="width: 80%; table-layout: fixed;">
+      <table id="seq-list-tbl" class="table responsive table-striped" style="width: 80%; table-layout: fixed;">
         <col width="60%">
         <col width="30%">
         <col width="10%">
-        <tr>
-          <th>Taxonomy</th>
-          <th>Sequence</th>
-          <th>Recall</th>
-        </tr>
-        {{datahigh|safe}}
+        <thead>
+          <tr>
+            <th>Taxonomy</th>
+            <th>Sequence</th>
+            <th>Recall</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{datahigh|safe}}
+        </tbody>
       </table>
     </div>
     <div id="seqlistlow" class="collapse">
       <h2> Top negative-associated sequence</h2>
-      <table id="seq-list-tbl" style="width: 80%; table-layout: fixed;">
+      <table id="seq-list-tbl" class="table responsive table-striped" style="width: 80%; table-layout: fixed;">
         <col width="60%">
         <col width="30%">
         <col width="10%">
-        <tr>
-          <th>Taxonomy</th>
-          <th>Sequence</th>
-          <th>Recall</th>
-        </tr>
-        {{datalow|safe}}
+        <thead>
+          <tr>
+            <th>Taxonomy</th>
+            <th>Sequence</th>
+            <th>Recall</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{datalow|safe}}
+        </tbody>
       </table>
     </div>
     <div id="seqlistcommon" class="collapse">
       <h2> Top COMMON/DOMINANT/HIGH sequence</h2>
-      <table id="seq-list-tbl" style="width: 80%; table-layout: fixed;">
+      <table id="seq-list-tbl" class="table responsive table-striped" style="width: 80%; table-layout: fixed;">
         <col width="60%">
         <col width="30%">
         <col width="10%">
-        <tr>
-          <th>Taxonomy</th>
-          <th>Sequence</th>
-          <th>F-Score</th>
-        </tr>
-        {{datacommon|safe}}
+        <thead>
+          <tr>
+            <th>Taxonomy</th>
+            <th>Sequence</th>
+            <th>F-Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{datacommon|safe}}
+        </tbody>
       </table>
     </div>

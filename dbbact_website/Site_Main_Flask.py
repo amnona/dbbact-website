@@ -6,11 +6,16 @@ import os
 import json
 import requests
 import re
+from io import BytesIO
+import base64
+import hashlib
 
 import matplotlib as mpl
 mpl.use('Agg')
+import numpy as np
+import scipy.stats
 
-from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app
+from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app, session, send_file
 
 from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
 from . import enrichment
@@ -1030,7 +1035,7 @@ def draw_download_fasta_button(annotationid):
 
 def draw_download_button(sequences=None):
     '''
-    Draw a button with a link to download the fasta sequences of the annotation
+    Draw a button with a link to download the fscores
 
     Parameters
     ----------
@@ -1948,7 +1953,8 @@ def draw_ontology_score_list(scores, section_id, description=None, max_terms=100
     list of (str, float)
         the terms and scores sorted by score (after using the max_terms and term_set filters)
     '''
-    wpart = '<div id="%s" class="tab-pane" style="margin-top: 20px; margin-bottom: 20px;">\n' % section_id
+    # wpart = '<div id="%s" class="tab-pane" style="margin-top: 20px; margin-bottom: 20px;">\n' % section_id
+    wpart = '<div id="%s" class="tab-pane" role="tabpanel" style="margin-top: 20px; margin-bottom: 20px;">\n' % section_id
     if description is not None:
         wpart += description
 
@@ -2098,7 +2104,6 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
     '''
     from wordcloud import WordCloud
     import matplotlib.pyplot as plt
-    from io import BytesIO
 
     debug(1, 'draw_cloud for %d words' % len(fscores))
     if len(fscores) == 0:
@@ -2142,7 +2147,6 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
         fig.savefig(local_save_name, format='pdf', bbox_inches='tight')
     fig.savefig(figfile, format='png', bbox_inches='tight')
     figfile.seek(0)  # rewind to beginning of file
-    import base64
     figdata_png = base64.b64encode(figfile.getvalue())
     figfile.close()
     plt.close()
@@ -2536,7 +2540,7 @@ def download():
     <h1>dbBact snapshot download</h1>
     Files are PostgreSQL 9.5.10 binary dumps.<br>
     For locally installing the dbBact rest-api server, see documentation at: <a href='https://github.com/amnona/dbbact-server'>https://github.com/amnona/dbbact-server</a><br>
-    <div id="annot-table-div" class="tab-pane in active" style="margin-top: 20px; margin-bottom: 20px;">
+    <div id="annot-table-div" class="tab-pane active" role="tabpanel" aria-labelledby="annot-table-div-header" style="margin-top: 20px; margin-bottom: 20px;">
     <table id="annot-table" class="table responsive" style="width: 100%;">
     <thead>
       <tr>
@@ -2899,7 +2903,7 @@ def draw_highlow_sequences_info(seqinfo_high, seqinfo_low, seqinfo_common):
         datalow += "<tr>"
         datalow += '<td>' + cseqinfo['taxonomy'] + '</td>'
         datalow += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
-        datalow += '<td>' + '%f' % cseqinfo['fscore_low'] + '</td><tr>'
+        datalow += '<td>' + '%f' % cseqinfo['fscore_low'] + '</td></tr>'
 
     datahigh = ''
     for cseqinfo in seqinfo_high:
@@ -2909,7 +2913,7 @@ def draw_highlow_sequences_info(seqinfo_high, seqinfo_low, seqinfo_common):
         datahigh += "<tr>"
         datahigh += '<td>' + cseqinfo['taxonomy'] + '</td>'
         datahigh += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
-        datahigh += '<td>' + '%f' % cseqinfo['fscore_high'] + '</td><tr>'
+        datahigh += '<td>' + '%f' % cseqinfo['fscore_high'] + '</td></tr>'
 
     datacommon = ''
     for cseqinfo in seqinfo_common:
@@ -2919,12 +2923,447 @@ def draw_highlow_sequences_info(seqinfo_high, seqinfo_low, seqinfo_common):
         datacommon += "<tr>"
         datacommon += '<td>' + cseqinfo['taxonomy'] + '</td>'
         datacommon += '<td><a href=%s>%s</a></td>' % (url_for('.sequence_annotations', sequence=cseqinfo['seq']), Markup.escape(cseqinfo['seq']))
-        datacommon += '<td>' + '%f' % cseqinfo['fscore_common'] + '</td><tr>'
+        datacommon += '<td>' + '%f' % cseqinfo['fscore_common'] + '</td></tr>'
 
     webPage = render_template('seqlist-highlow.html', datalow=datalow, datahigh=datahigh, datacommon=datacommon)
     return webPage
 
+
 @Site_Main_Flask_Obj.route('/interactive', methods=['POST', 'GET'])
 def interactive():
-    webPage = render_template('interactive.html')
+    '''Interactive analysis of experiment data
+    Used to generate the following:
+    * interactive heatmap
+    * f-score wordcloud
+    * term enrichment analysis'''
+    webPage = render_header() + render_template('interactive.html')
     return webPage
+
+
+def _load_experiment_table():
+    '''load the table and metadata files using the session object
+
+    we use the following session variables:
+    table_format - the format of the table file (biom or qiime2)
+    table_tmp_file_name - the name of the table file
+    metadata_tmp_file_name - the name of the metadata file
+    
+    Returns
+    -------
+    table : biom.Table
+    '''
+    import calour as ca
+    import tempfile
+    import os
+
+    table_format = session['table_format']
+    table_tmp_file_name = session['table_tmp_file_name']
+    metadata_tmp_file_name = session['metadata_tmp_file_name']
+
+    if table_format == 'biom':
+        table = ca.read_amplicon(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
+    else:
+        table = ca.read_qiime2(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
+
+    debug(2,'loaded table %s' % table)
+    return table
+
+
+@Site_Main_Flask_Obj.route('/interactive_experiment_get_data', methods=['POST', 'GET'])
+def interactive_experiment_get_data():
+    '''Store the uploaded files and redirect to analysis select (to prevent resubmitting the form)
+    We store the following files locally as a temp file and store the tmp file name in the session object:
+    table-file
+    metadata-file
+    experiment_name
+
+    Also, we delete the previous tmp files associated with the session (if any)
+    '''
+    import tempfile
+    import os
+
+    # get the form data
+    form = request.form
+    # get the name parameter from the form
+    experiment_name = form['experiment_name']
+
+    # get the two files (table and metadata)
+    table_file = request.files['table-file']
+    metadata_file = request.files['metadata-file']
+    if table_file.filename.endswith('.biom'):
+        table_format = 'biom'
+    elif table_file.name.endswith('.qza'):
+        table_format = 'qza'
+    else:
+        debug(2, 'bad file name %s. Dont know the file type' % table_file.filename)
+        return 'table file format not recognized. Please select a .biom or .qza file'
+
+    # save the uploaded files
+    with tempfile.NamedTemporaryFile(suffix='.'+table_format, dir='./dbbact_website/tmp_files', delete=False) as table_file_name:
+        table_file.save(table_file_name.name)
+        table_tmp_file_name = table_file_name.name
+ 
+    with tempfile.NamedTemporaryFile(suffix='.txt',dir='./dbbact_website/tmp_files',delete=False) as metadata_tmp_file:
+        metadata_file.save(metadata_tmp_file.name)
+        metadata_tmp_file_name = metadata_tmp_file.name
+
+    # clear the previous tmp files of the user session
+    try:
+        if 'table_tmp_file_name' in session:
+            os.remove(session['table_tmp_file_name'])
+        if 'metadata_tmp_file_name' in session:
+            os.remove(session['metadata_tmp_file_name'])
+    except:
+        pass
+
+    # and set the new tmp file names in the session
+    session['table_tmp_file_name'] = table_tmp_file_name
+    session['metadata_tmp_file_name'] = metadata_tmp_file_name
+    session['table_format'] = table_format
+    session['experiment_name'] = experiment_name
+
+    return redirect(url_for('.interactive_experiment_details'))
+
+
+@Site_Main_Flask_Obj.route('/interactive_experiment_details', methods=['POST', 'GET'])
+def interactive_experiment_details():
+    '''After loading the table and metadata, show the summary page for the experiment
+    From this page the user can select the analysis to perform
+    '''
+    # load the table and metadata into a Calour AmpliconExperiment object
+    import calour as ca
+
+    table_format = session['table_format']
+    table_tmp_file_name = session['table_tmp_file_name']
+    metadata_tmp_file_name = session['metadata_tmp_file_name']
+    experiment_name = session.get('experiment_name', 'NA')
+
+    if table_format == 'biom':
+        table = ca.read_amplicon(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
+    else:
+        table = ca.read_qiime2(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
+    table = table.filter_prevalence(0.1)
+
+    # create a dict of field names and values in the table sample_metadata
+    # keeping only fields with more than 1 value and less than all values
+    field_data = {}
+    for cfield in table.sample_metadata.columns:
+        cvals = list(table.sample_metadata[cfield].unique())
+        if len(cvals) <= 1:
+            continue
+        if len(cvals) == len(table.sample_metadata):
+            continue
+        cvals = [str(x) for x in cvals]
+        field_data[cfield] = cvals
+
+    return render_header()+render_template('interactive_exp_details.html', num_samples = len(table.sample_metadata), num_features = len(table.feature_metadata), metadata_fields=field_data, field_data=field_data, experiment_name=experiment_name)
+
+
+@Site_Main_Flask_Obj.route('/wordcloud_analysis', methods=['POST', 'GET'])
+def wordcloud_analysis():
+    '''Draw a webpage with the experiment wordcloud
+    Uses the experiment stored in session
+
+    Parameters
+    ----------
+    method : str
+        The method to use for weighting the ASVs. options:
+        'none': usee all the ASVs with at least one read in the experiment
+        'prevalence': use all the ASVs with at least 30% prevalence in the experiment
+        'linear': weigh the per-ASV f-scores by the meam ASV prevalence in the experiment
+        'log': weigh the per-ASV f-scores by the log of the mean ASV prevalence in the experiment
+        'rank': weigh the per-ASV f-scores by the rank of the mean ASV prevalence in the experiment
+    '''
+    import matplotlib.pyplot as plt
+
+    method = request.args.get('method', 'prevalence')
+
+    table = _load_experiment_table()
+    if method == 'prevalence':
+        debug(3, 'filtering table by prevalence')
+        table = table.filter_prevalence(0.3)
+        freq_weighted = False
+    else:
+        return 'method %s not supported' % method
+
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    debug(2,'drawing wordcloud')
+    f = dbc.draw_wordcloud(table, freq_weighted=freq_weighted)
+    figfile = BytesIO()
+    f.savefig(figfile, format='png', bbox_inches='tight')
+    figfile.seek(0)  # rewind to beginning of file
+    figdata_png = base64.b64encode(figfile.getvalue())
+    figfile.close()
+    figdat_md5 = hashlib.md5(figdata_png).hexdigest()
+    figdata_tmp_file_name = os.path.join('./dbbact_website/tmp_files', figdat_md5)
+    f.savefig(figdata_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
+    if 'files_md5' not in session:
+        session['files_md5'] = {}
+    session['files_md5'][figdat_md5] = 'wordcloud.png'
+    plt.close(f.figure)
+    debug(2,'got the figure data')
+    # table.filter_prevalence(0.1).export_html(output_file='./dbbact_website/templates/tmp_heatmap.html')
+    # return render_template('tmp_heatmap.html')
+
+    # create an html page with a download button that downloads the e.feature_metadata pandas dataframe
+    return render_header() + render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(figdata_png), figure_link='/download_file/%s' % figdat_md5)
+
+
+@Site_Main_Flask_Obj.route('/interactive_metadata_submit', methods=['POST', 'GET'])
+def interactive_metadata_submit():
+    form = request.form
+    # get the metadata field to use
+    metadata_field = form['metadata_field']
+    # get the metadata values to use for group1 and group2
+    metadata_group1 = form['group1_values'].split(',')
+    metadata_group2 = form['group2_values'].split(',')
+
+    session['metadata_field'] = metadata_field
+    session['metadata_group1'] = metadata_group1
+    session['metadata_group2'] = metadata_group2
+
+    debug(2, 'metadata_field=%s, metadata_group1=%s, metadata_group2=%s' % (metadata_field, metadata_group1, metadata_group2))
+    # we redirect to prevent form resubmission on refresh
+    return redirect(url_for('.interactive_metadata_submit2'))
+
+
+@Site_Main_Flask_Obj.route('/interactive_metadata_submit2', methods=['POST', 'GET'])
+def interactive_metadata_submit2():
+    # assumes the metadata_field, metadata_group1 and metadata_group2 are already in the session (from interactive_metadata_submit)
+    import matplotlib.pyplot as plt
+
+    metadata_field = session['metadata_field']
+    metadata_group1 = session['metadata_group1']
+    metadata_group2 = session['metadata_group2']
+    table_file_name = session['table_tmp_file_name']
+    metadata_file_name = session['metadata_tmp_file_name']
+    table_format = session['table_format']
+
+    import calour as ca
+    if table_format == 'biom':
+        table = ca.read_amplicon(table_file_name, metadata_file_name, min_reads=1000, normalize=10000)
+    else:
+        table = ca.read_qiime2(table_file_name, metadata_file_name, min_reads=1000, normalize=10000)
+
+    # convert all the sample_metadata to strings (to overcome the form sending everything as strings)
+    for cfield in table.sample_metadata.columns:
+        table.sample_metadata[cfield] = table.sample_metadata[cfield].astype(str)
+
+    dd=table.diff_abundance(metadata_field, metadata_group1, metadata_group2, random_seed=2023)
+    debug(2,'got the diff abundance table %s' % dd)
+    if dd is None:
+        debug(2, 'no significant features found')
+        return('No significant features found')
+
+    if len(dd.feature_metadata) == 0:
+        debug(2, 'no significant features found')
+        return('No significant features found')
+
+    debug(2, 'found %d differentially abundant features' % len(dd.feature_metadata))
+    # save the differential abundance results to a tmp file and store it in the session
+    if session.get('dd_tmp_file_name', None) is not None:
+        try:
+            os.remove(session['dd_tmp_file_name']+'.biom')
+        except:
+            pass
+        try:
+            os.remove(session['dd_tmp_file_name']+'_features.txt')
+        except:
+            pass
+        try:
+            os.remove(session['dd_tmp_file_name']+'_samples.txt')
+        except:
+            pass
+
+    dd_tmp_file_name = tempfile.mktemp(suffix='_diff', dir='./dbbact_website/tmp_files')
+    dd.save(dd_tmp_file_name)
+    session['dd_tmp_file_name'] = dd_tmp_file_name
+    debug(2, 'saved diff abundance results to tmp file %s' % dd_tmp_file_name)
+    # save the diff abundance features table to a tmp file and store it in the session
+    dd_features = dd.feature_metadata
+    dd_md5 = hashlib.md5(dd_features.to_csv().encode()).hexdigest()
+    dd_features_tmp_file_name = os.path.join('./dbbact_website/tmp_files', dd_md5)
+    dd_features.to_csv(dd_features_tmp_file_name, sep='\t', index=False)
+    if 'files_md5' not in session:
+        session['files_md5'] = {}
+    session['files_md5'][dd_md5] = 'diff_abundace_features.tsv'
+
+
+    f,e = dd.plot_diff_abundance_enrichment()
+    debug(2,'got the term enrichment plot')
+    figfile = BytesIO()
+    f.figure.savefig(figfile, format='png', bbox_inches='tight')
+    figfile.seek(0)  # rewind to beginning of file
+    figdata_png = base64.b64encode(figfile.getvalue())
+    figfile.close()
+    # save also as a tmp file for later download
+    figdat_md5 = hashlib.md5(figdata_png).hexdigest()
+    figdata_tmp_file_name = os.path.join('./dbbact_website/tmp_files', figdat_md5)
+    f.figure.savefig(figdata_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
+    if 'files_md5' not in session:
+        session['files_md5'] = {}
+    session['files_md5'][figdat_md5] = 'enriched_terms.png'
+    plt.close(f.figure)
+    debug(2,'got the figure data')
+
+    # create an html page with a download button that downloads the e.feature_metadata pandas dataframe
+    group1_samples = len(table.sample_metadata[table.sample_metadata[metadata_field].isin(metadata_group1)])
+    group2_samples = len(table.sample_metadata[table.sample_metadata[metadata_field].isin(metadata_group2)])
+    group1_size = np.sum(dd.feature_metadata['_calour_stat']>0)
+    group2_size = np.sum(dd.feature_metadata['_calour_stat']<0)
+    # put the e.feature_metadata in a list where each entry is a list containing the index value, the _calour_effect_size and the _calour_qval
+    # this is used to create the table in the html page
+
+    MAX_TERMS_TO_SHOW = 20    
+    showneg = np.sum(e.feature_metadata['odif']<0)
+    if showneg > MAX_TERMS_TO_SHOW:
+        showneg = MAX_TERMS_TO_SHOW
+    showpos = np.sum(e.feature_metadata['odif']>0)
+    if showpos > MAX_TERMS_TO_SHOW:
+        showpos = MAX_TERMS_TO_SHOW
+
+    # concatenate the frst showneg rows with the last showpos rows
+    ee = e.feature_metadata[:showneg]
+    ee = ee.append(e.feature_metadata[-showpos:])
+    # reverse the order
+    ee = ee.iloc[::-1]
+
+    term_results = [[x[1]['term'], x[1]['odif'], x[1]['pvals']] for x in ee.iterrows()]
+
+    # calculate the md5 checksum of the e.feature_metadata dataframe
+    # this is used to check if the user downloaded the same file as the one we created
+    # (to prevent malicious users from creating a fake file with the same name)
+    md5sum = hashlib.md5(e.feature_metadata.to_csv(sep='\t', index=False).encode('utf-8')).hexdigest()
+    if 'files_md5' not in session:
+        session['files_md5'] = {}
+    session['files_md5'][md5sum] = 'enriched_terms.tsv'
+    # save the dataframe to a file named by the md5sum in the tmp_files folder
+    enriched_tsv = os.path.join('./dbbact_website/tmp_files', md5sum)
+    e.feature_metadata.to_csv(enriched_tsv, sep='\t', index=False)
+
+    return render_header() + render_template('enriched-terms.html', toptermimage=urllib.parse.quote(figdata_png), 
+                                             field=metadata_field, group1=metadata_group1, group2=metadata_group2,group1_samples=group1_samples,group2_samples=group2_samples,group1_size=group1_size,group2_size=group2_size,terms=term_results,
+                                             enriched_terms_link='/download_file/%s' % md5sum, figure_link='/download_file/%s' % figdat_md5, diff_abundance_link='/download_file/%s' % dd_md5)
+
+
+@Site_Main_Flask_Obj.route('/download_file/<string:md5sum>')
+def download_file(md5sum):
+    '''Download the enriched terms table
+
+    Parameters
+    ----------
+    md5sum : str
+        The md5sum of the file to download
+    '''
+    debug(4,'downloading file for hash %s' % md5sum)
+    # if md5sum not in session.get('files_md5',{}).keys():
+    #     debug(4, 'hash %s not in session' % md5sum)
+    #     print(session.items())
+    #     return 'Error: file hash %s not found' % md5sum
+    # # get the file name from the session hash
+    # visible_file_name = session['files_md5'][md5sum]
+    # return the file
+    # return send_file('tmp_files/%s' % md5sum, as_attachment=True, download_name=visible_file_name)
+    return send_file('tmp_files/%s' % md5sum, as_attachment=True)
+
+
+@Site_Main_Flask_Obj.route('/single_term_analysis/<string:term>', methods=['POST', 'GET'])
+def single_term_analysis(term):
+    '''Show a single term venn and f-score scatter
+
+    NOTE: the function uses the session variable 'dd_tmp_file_name' to get the differential abundance results
+
+    Parameters
+    ----------
+    term : str
+        The term to show
+    '''
+    import matplotlib.pyplot as plt
+    import calour as ca
+    import calour_utils as cu
+
+    metadata_field = session['metadata_field']
+    metadata_group1 = session['metadata_group1']
+    metadata_group2 = session['metadata_group2']
+
+    # prepare the search term used for the dbBact query
+    # we remove the * at the end and add a - at the beginning if it is 'LOWER IN'
+    # and remove any spaces at the beginning or end
+    search_term = term.lower()
+    if search_term.startswith('lower in'):
+        search_term = '-' + search_term[9:]
+    if search_term.endswith('*'):
+        search_term = search_term[:-1]
+    search_term = search_term.strip()
+
+    dd_tmp_file_name = session['dd_tmp_file_name']
+    dd = ca.read_amplicon(dd_tmp_file_name+'.biom', dd_tmp_file_name+'_sample.txt', feature_metadata_file=dd_tmp_file_name+'_feature.txt', normalize=None, min_reads=0)
+    debug(2, 'loaded diff abundance results from tmp file %s' % dd_tmp_file_name)
+
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    group1_size = np.sum(dd.feature_metadata['_calour_stat']>0)
+    group2_size = np.sum(dd.feature_metadata['_calour_stat']<0)
+    f, overlaps, venn_pval = dbc.plot_term_venn_all(search_term,dd,max_size=np.max([group1_size,group2_size])*1.5, term_names=term)
+    figfile = BytesIO()
+    f.savefig(figfile, format='png', bbox_inches='tight')
+    figfile.seek(0)  # rewind to beginning of file
+    fig_venn_data_png = base64.b64encode(figfile.getvalue())
+    figfile.close()
+    # save for download button
+    fig_venn_data_md5 = hashlib.md5(fig_venn_data_png).hexdigest()
+    fig_venn_tmp_file_name = os.path.join('./dbbact_website/tmp_files', fig_venn_data_md5)
+    f.figure.savefig(fig_venn_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
+    if 'files_md5' not in session:
+        session['files_md5'] = {}
+    session['files_md5'][fig_venn_data_md5] = 'venn_%s.png' % search_term
+    plt.close(f.figure)
+    debug(2,'got the venn figure data')
+
+    # create the per-sample f-score plot
+    # load the original biom table
+    table = _load_experiment_table()
+    # calculate the f-scores for the term in each sample. it is added as a new sample_metadata field
+    newexp = dbc.get_term_sample_fscores(table, search_term, ignore_exp=True, transform=None)
+    # plot the per-sample f-scores
+    labels, vals, f = cu.plot_violin_category(newexp, session['metadata_field'], '_dbbact_fscore_'+search_term, show_labels=False)
+    figfile = BytesIO()
+    f.savefig(figfile, format='png', bbox_inches='tight')
+    figfile.seek(0)  # rewind to beginning of file
+    fig_fscores_data_png = base64.b64encode(figfile.getvalue())
+    figfile.close()
+    # save for download button
+    fig_fscores_data_md5 = hashlib.md5(fig_fscores_data_png).hexdigest()
+    fig_fscores_tmp_file_name = os.path.join('./dbbact_website/tmp_files', fig_fscores_data_md5)
+    f.figure.savefig(fig_fscores_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
+    if 'files_md5' not in session:
+        session['files_md5'] = {}
+    session['files_md5'][fig_fscores_data_md5] = 'fscores_%s.png' % search_term
+    plt.close(f.figure)
+    sample_fscore_pval = scipy.stats.kruskal(*vals)[1]
+
+    return render_header() + render_template('enriched-term-info.html', venn_image=urllib.parse.quote(fig_venn_data_png), sample_fscore_image=urllib.parse.quote(fig_fscores_data_png),
+                                             term=term, field=metadata_field, group1=metadata_group1, group1_samples=group1_size, group2=metadata_group2, group2_samples=group2_size,
+                                             venn_pval=venn_pval, sample_fscore_pval=sample_fscore_pval,
+                                             venn_figure_link='/download_file/%s' % fig_venn_data_md5, fscores_figure_link='/download_file/%s' % fig_fscores_data_md5)
+
+
+@Site_Main_Flask_Obj.route('/interactive_heatmap_submit', methods=['POST', 'GET'])
+def interactive_heatmap_submit():
+    import matplotlib.pyplot as plt
+
+    form = request.form
+    metadata_field = form['metadata_field_heatmap']
+    if metadata_field.lower() == 'none':
+        metadata_field = None
+    debug(2,'generating heatmap for metadata field %s' % metadata_field)
+
+    debug(2, 'loading table')
+    table = _load_experiment_table()
+    debug(2, 'clustering data')
+    table = table.cluster_features(10)
+    if metadata_field is not None:
+        table = table.sort_samples(metadata_field)
+
+    debug(2, 'drawing heatmap')
+    table.export_html(output_file='./dbbact_website/templates/tmp_heatmap.html',sample_field=metadata_field)
+    return render_template('tmp_heatmap.html')

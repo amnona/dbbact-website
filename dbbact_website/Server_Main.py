@@ -9,6 +9,7 @@ dbDefaultPwd = ""
 recentLoginUsers = []
 
 app = Flask(__name__)
+app.secret_key = 'batata'
 app.register_blueprint(Site_Main_Flask_Obj)
 
 
