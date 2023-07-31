@@ -2935,7 +2935,9 @@ def interactive():
     Used to generate the following:
     * interactive heatmap
     * f-score wordcloud
-    * term enrichment analysis'''
+    * term enrichment analysis
+    
+    When submitted, goes to interactive_experiment_get_data'''
     webPage = render_header() + render_template('interactive.html')
     return webPage
 
@@ -2950,7 +2952,9 @@ def _load_experiment_table():
     
     Returns
     -------
-    table : biom.Table
+    err: str
+        the error enounctered or empty if ok
+    table : calour.AmpliconExperiment
     '''
     import calour as ca
     import tempfile
@@ -2959,14 +2963,25 @@ def _load_experiment_table():
     table_format = session['table_format']
     table_tmp_file_name = session['table_tmp_file_name']
     metadata_tmp_file_name = session['metadata_tmp_file_name']
+    repseqs_tmp_file_name = session.get('repseqs_tmp_file_name', None)
 
     if table_format == 'biom':
         table = ca.read_amplicon(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
     else:
-        table = ca.read_qiime2(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
+        table = ca.read_qiime2(table_tmp_file_name, metadata_tmp_file_name, rep_seq_file=repseqs_tmp_file_name, min_reads=1000, normalize=10000)
+        if len(table.feature_metadata.index.values[0]) == 32:
+            return 'The table seems to contain hashed ids. Please also supply the rep-seqs file', table
 
-    debug(2,'loaded table %s' % table)
-    return table
+    seq_len = len(table.feature_metadata.index.values[0])
+
+    if seq_len == 32:
+        return 'The table seems to contain hashed ids. Please also supply the rep-seqs file', table
+
+    if seq_len < 100:
+        return 'the table contains too short sequences (length=%d). Minimal length should be 100bp' % seq_len, table
+
+    debug(2,'loaded table %s. sequence length is %d' % (table, seq_len))
+    return '', table
 
 
 @Site_Main_Flask_Obj.route('/interactive_experiment_get_data', methods=['POST', 'GET'])
@@ -2990,12 +3005,13 @@ def interactive_experiment_get_data():
     # get the two files (table and metadata)
     table_file = request.files['table-file']
     metadata_file = request.files['metadata-file']
+    repseqs_file = request.files['repseqs-file']
     if table_file.filename.endswith('.biom'):
         table_format = 'biom'
-    elif table_file.name.endswith('.qza'):
+    elif table_file.filename.endswith('.qza'):
         table_format = 'qza'
     else:
-        debug(2, 'bad file name %s. Dont know the file type' % table_file.filename)
+        debug(2, 'bad file name (%s). Dont know the file type' % table_file.filename)
         return 'table file format not recognized. Please select a .biom or .qza file'
 
     # save the uploaded files
@@ -3007,12 +3023,21 @@ def interactive_experiment_get_data():
         metadata_file.save(metadata_tmp_file.name)
         metadata_tmp_file_name = metadata_tmp_file.name
 
+    repseqs_tmp_file_name = None
+    if repseqs_file:
+        with tempfile.NamedTemporaryFile(suffix='.qza',dir='./dbbact_website/tmp_files',delete=False) as repseqs_tmp_file:
+            repseqs_file.save(repseqs_tmp_file.name)
+            repseqs_tmp_file_name = repseqs_tmp_file.name
+
     # clear the previous tmp files of the user session
     try:
         if 'table_tmp_file_name' in session:
             os.remove(session['table_tmp_file_name'])
         if 'metadata_tmp_file_name' in session:
             os.remove(session['metadata_tmp_file_name'])
+        if 'repseqs_tmp_file_name' in session:
+            if session['repseqs_tmp_file_name']:
+                os.remove(session['repseqs_tmp_file_name'])
     except:
         pass
 
@@ -3021,6 +3046,7 @@ def interactive_experiment_get_data():
     session['metadata_tmp_file_name'] = metadata_tmp_file_name
     session['table_format'] = table_format
     session['experiment_name'] = experiment_name
+    session['repseqs_tmp_file_name'] = repseqs_tmp_file_name
 
     return redirect(url_for('.interactive_experiment_details'))
 
@@ -3038,11 +3064,9 @@ def interactive_experiment_details():
     metadata_tmp_file_name = session['metadata_tmp_file_name']
     experiment_name = session.get('experiment_name', 'NA')
 
-    if table_format == 'biom':
-        table = ca.read_amplicon(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
-    else:
-        table = ca.read_qiime2(table_tmp_file_name, metadata_tmp_file_name, min_reads=1000, normalize=10000)
-    table = table.filter_prevalence(0.1)
+    err, table = _load_experiment_table()
+    if err:
+        return render_header() + '<h1>Error encountered</h1><br>' + err
 
     # create a dict of field names and values in the table sample_metadata
     # keeping only fields with more than 1 value and less than all values
@@ -3078,7 +3102,9 @@ def wordcloud_analysis():
 
     method = request.args.get('method', 'prevalence')
 
-    table = _load_experiment_table()
+    err, table = _load_experiment_table()
+    if err:
+        return render_header() + '<h1>Error encountered</h1><br>' + err
     if method == 'prevalence':
         debug(3, 'filtering table by prevalence')
         table = table.filter_prevalence(0.3)
@@ -3129,21 +3155,28 @@ def interactive_metadata_submit():
 
 @Site_Main_Flask_Obj.route('/interactive_metadata_submit2', methods=['POST', 'GET'])
 def interactive_metadata_submit2():
-    # assumes the metadata_field, metadata_group1 and metadata_group2 are already in the session (from interactive_metadata_submit)
+    '''The differential abundance+term enrichment analysis
+    assumes the metadata_field, metadata_group1 and metadata_group2 are already in the session (from interactive_metadata_submit)
+    '''
     import matplotlib.pyplot as plt
+
+    err, table = _load_experiment_table()
+    if err:
+        return render_header() + '<h1>Error encountered</h1><br>' + err
+
 
     metadata_field = session['metadata_field']
     metadata_group1 = session['metadata_group1']
     metadata_group2 = session['metadata_group2']
-    table_file_name = session['table_tmp_file_name']
-    metadata_file_name = session['metadata_tmp_file_name']
-    table_format = session['table_format']
+    # table_file_name = session['table_tmp_file_name']
+    # metadata_file_name = session['metadata_tmp_file_name']
+    # table_format = session['table_format']
 
-    import calour as ca
-    if table_format == 'biom':
-        table = ca.read_amplicon(table_file_name, metadata_file_name, min_reads=1000, normalize=10000)
-    else:
-        table = ca.read_qiime2(table_file_name, metadata_file_name, min_reads=1000, normalize=10000)
+    # import calour as ca
+    # if table_format == 'biom':
+    #     table = ca.read_amplicon(table_file_name, metadata_file_name, min_reads=1000, normalize=10000)
+    # else:
+    #     table = ca.read_qiime2(table_file_name, metadata_file_name, min_reads=1000, normalize=10000)
 
     # convert all the sample_metadata to strings (to overcome the form sending everything as strings)
     for cfield in table.sample_metadata.columns:
@@ -3321,7 +3354,10 @@ def single_term_analysis(term):
 
     # create the per-sample f-score plot
     # load the original biom table
-    table = _load_experiment_table()
+    err, table = _load_experiment_table()
+    if err:
+        return render_header() + '<h1>Error encountered</h1><br>' + err
+
     # calculate the f-scores for the term in each sample. it is added as a new sample_metadata field
     newexp = dbc.get_term_sample_fscores(table, search_term, ignore_exp=True, transform=None)
     # plot the per-sample f-scores
@@ -3358,7 +3394,10 @@ def interactive_heatmap_submit():
     debug(2,'generating heatmap for metadata field %s' % metadata_field)
 
     debug(2, 'loading table')
-    table = _load_experiment_table()
+    err, table = _load_experiment_table()
+    if err:
+        return render_header() + '<h1>Error encountered</h1><br>' + err
+
     debug(2, 'clustering data')
     table = table.cluster_features(10)
     if metadata_field is not None:

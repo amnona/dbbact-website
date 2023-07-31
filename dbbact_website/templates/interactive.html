@@ -24,6 +24,13 @@
             <label for="table-file">Table file:</label>
             <input type="file" id="table-file" name="table-file" accept=".qza,.biom"><br><br>
 
+            <div id="repseqs">
+                <h2>representative sequences</h2>
+                If the qiime2 table was denoised without the sequences embedded (i.e. without the --p-no-hashed-feature-ids flag), you must also upload the representative sequences file (.qza).<br>
+                <label for="repseqs-file">Representative sequences file (.qza):</label>
+                <input type="file" id="repseqs-file" name="repseqs-file" accept=".qza"><br><br>
+            </div>
+
             <h2>Sample metadata</h2>
             A tab-separated file with the per-sample metadata.<br>
             First column should cotain the sample name (correspondinh to the sample names in the reads table)<br><br>
@@ -39,4 +46,25 @@
         </form>
     </div>
 </body>
+
+<script>
+    // hide the repseqs div upon page load
+    $('#repseqs').hide();
+
+    // when the user selects a file, check if it is a qiime2 table
+    // if it is, show the repseqs div
+    // if it isn't, hide the repseqs div
+    $('#table-file').change(function() {
+        console.log('table file changed');
+        var file = $('#table-file')[0].files[0];
+        console.log(file);
+        if (file.name.endsWith('.qza')) {
+            console.log('file is qza');
+            $('#repseqs').show();
+        } else {
+            console.log('file is not qza');
+            $('#repseqs').hide();
+        }
+    });
+</script>
 </html>
