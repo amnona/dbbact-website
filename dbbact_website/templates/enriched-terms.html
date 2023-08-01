@@ -1,0 +1,66 @@
+<style>
+    #wc-panel {
+      margin-left: 100px;
+      margin-right: 100px;
+      text-align: center;
+    }
+  </style>
+    <h1> Two group term enrichment</h1>
+    <h2>Comparison for field "{{ field }}"</h2>
+    <div id="differential-abundance" class="panel panel-default">
+      <h2>Differential abundance results</h2>
+      <h3>Group 1: {{ group1 }} ({{group1_samples}} samples)</h3>
+      Contains {{ group1_size }} sequences significantly higher compared to group2<br>
+      <h3>Group 2: {{ group2 }} ({{group2_samples}} samples)</h3>
+      Contains {{ group2_size }} sequences significantly higher compared to group1<br>
+      <a href="{{ diff_abundance_link }}" download="diff_abundance.tsv"><button type = "button">Download ASVs</button></a>
+    </div>
+    <div class="panel-body" style="padding: 5px;">
+      <div id="top-terms-figure" class="panel panel-default">
+        <h2>Top enriched terms</h2>
+      (between sequences significantly higher in group1 vs. group2)<br>
+      <img src="data:image/png;base64,{{ toptermimage }}" alt="top enriched terms"/><br>
+      <!-- add download button -->
+        <a href="{{ figure_link }}" download="top_enriched_terms.png"><button type = "button">Download</button></a>
+    </div>
+    <div id="terms list" class="panel panel-default">
+        <h2>Enriched terms list</h2>
+        <table class="table responsive table-striped">
+          <col width='55%'>
+          <col width='20%'>
+          <col width='15%'>
+          <col width='10%'>
+          <thead>
+            <tr>
+              <th>Term</th>
+              <th>Direction</th>
+              <th>Effect</th>
+              <th>q-value</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for term in terms %}
+            <tr>
+                <!-- if term[1] is positive, use blue color for text, otherwise use red -->
+                <!-- if term[1] is positive, set the variable color to blue, otherwise set it to red -->
+                {% if term[1] > 0 %}
+                {% set color = 'darkgreen' %}
+                {% else %}
+                {% set color = 'red' %}
+                {% endif %}
+            <td><a href="/single_term_analysis/{{ term[0] }}" target=”_blank”><font color="{{ color }}">{{ term[0] }}</font></td>
+              {%if term[1] > 0 %}
+                <td><font color="{{ color }}">{{ group1 }}</font></td>
+              {% else %}
+                <td><font color="{{ color }}">{{ group2 }}</font></td>
+              {% endif %}
+            <td><font color="{{ color }}">{{ term[1] }}</font></td>
+            <td><font color="{{ color }}">{{ term[2] }}</font></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <!-- add a nice button to download the file provided in the enriched_terms_tsv variable -->
+        <a href="{{ enriched_terms_link }}" download="enriched_terms.tsv"><button type = "button">Download terms</button></a>
+  </div>
+    

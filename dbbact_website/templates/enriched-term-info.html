@@ -1,0 +1,29 @@
+<!-- <style>
+    #wc-panel {
+      margin-left: 100px;
+      margin-right: 100px;
+      text-align: center;
+    }
+  </style>
+ -->
+<div id="enriched-term-info" class="panel panel-default">
+    <h1> Term enrichment for: {{ term }}</h1>
+    <h2>Comparison for field "{{ field }}"</h2>
+    <h3>Group 1: {{ group1 }} ({{group1_samples}} samples)</h3>
+    Contains {{ group1_size }} sequences significantly higher compared to group2<br>
+    <h3>Group 2: {{ group2 }} ({{group2_samples}} samples)</h3>
+    Contains {{ group2_size }} sequences significantly higher compared to group1<br>
+    <div class="panel-body" style="padding: 5px;">
+      <h2>presence/absence venn diagram</h2>
+      <h3>Fischer-exact p-value: {{ venn_pval }}</h3>
+      <img src="data:image/png;base64,{{ venn_image }}" alt="term_venn_image"/>
+      <!-- add download button -->
+      <a href="{{ venn_figure_link }}" download="venn_{{ term }}.png"><button type = "button">Download</button></a>
+    </div>
+    <div class="panel-body" style="padding: 5px;">
+        <h2>per-sample weighted f-score for term: {{ term }}</h2>
+        <h3>Mann-Whitney p-value: {{ sample_fscore_pval }}</h3>
+        <img src="data:image/png;base64,{{ sample_fscore_image }}" alt="sample_fscore_image"/>
+        <!-- add download button -->
+        <a href="{{ fscores_figure_link }}" download="fscores_{{ term }}.png"><button type = "button">Download</button></a>
+</div>

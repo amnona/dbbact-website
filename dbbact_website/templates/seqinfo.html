@@ -37,35 +37,55 @@
   <div class="panel-footer">
     <h2>Taxonomy: {{taxonomy}}</h2>
 
-<!-- <div id="species-panel" class="panel panel-default">
-  <div class="panel-heading">
-    SILVA exact match species:
-  </div>
- -->
-  <div id="species-box" class="panel-body">
-    <!-- <br> -->
-    <button id="collapse-btn" data-toggle="collapse" data-target="#specieslist">SILVA species matches ({{ num_species_match }}) </button>
-    <!-- <br> -->
-    <div id="specieslist" class="collapse">
-      <table id="species-info-list-tbl" class="table responsive" style="width: 100%;">
-      <thead>
-        <tr>
-          <th>species</th>
-          <th># matches</th>
-          <th>SILVA IDs</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{ species_details | safe}}
-      </tbody>
-    </table>
-    </div>
-  </div>
-<!-- </div> -->
+    <div id="species-box" class="panel-body">
 
+      <button id="collapse-btn" data-bs-toggle="collapse" data-bs-target="#species-list">Show species matches ({{ num_species_match }})</button>
+      <div id="species-list" class="collapse">
+        <br>
+        <table id="species-info-seq-list-tbl" class="table-responsive table-striped" style="width: 100%;">
+          <thead>
+            <tr>
+              <th>species</th>
+              <th># matches</th>
+              <th>SILVA IDs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ species_details | safe}}
+          </tbody>
+        </table>
+      </div>
 
+      <!-- <div class="accordion" id="myAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingOne">
+            <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+              <h1>SILVA species matches ({{ num_species_match }})</h1>
+            </button>
+          </h2>
+          <div id="collapseOne" class="accordion-collapse collapse">
+            <div class="card-body">
+              <table id="species-info-seq-list-tbl" class="table-responsive table-striped" style="width: 100%;">
+                <thead>
+                  <tr>
+                    <th>species</th>
+                    <th># matches</th>
+                    <th>SILVA IDs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ species_details | safe}}
+                </tbody>
+              </table>
+            </div>        
+          </div>
+        </div>
+      </div> -->
+
+    </div>    
   </div>
 </div>
+
 <script>
   var nt2rgb = {
     'A': '#f01505',
@@ -82,12 +102,10 @@
   }).join(''));
 </script>
 
-<script type="text/javascript">
-  $(document).ready(function() {
-    $('#species-info-seq-list-tbl').DataTable({'scrollX': true, 'autoWidth': true, 'paging': true, 'lengthMenu':[10, 25, 50, 100, -1], 'pageLength': 10, 'aaSorting': []});
-} );
-
-$('#specieslist').on('shown.bs.collapse', function() {
-   $('#species-info-seq-list-tbl').DataTable().columns.adjust().draw();
- });
-</script>
+<!-- <script type="text/javascript">
+  $(document).ready(
+    function() {
+      $('#species-info-seq-list-tbl').DataTable({'scrollX': true, 'autoWidth': true, 'paging': true, 'lengthMenu':[10, 25, 50, 100, -1], 'pageLength': 10, 'aaSorting': []});
+    }
+  );
+</script> -->
