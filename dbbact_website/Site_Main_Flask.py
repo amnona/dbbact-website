@@ -2986,13 +2986,14 @@ def _load_experiment_table():
 
 @Site_Main_Flask_Obj.route('/interactive_experiment_get_data', methods=['POST', 'GET'])
 def interactive_experiment_get_data():
-    '''Store the uploaded files and redirect to analysis select (to prevent resubmitting the form)
+    '''Store the uploaded files and redirect to analysis selection (to prevent resubmitting the form).
+    Called when submitting the interactive() form.
     We store the following files locally as a temp file and store the tmp file name in the session object:
     table-file
     metadata-file
     experiment_name
 
-    Also, we delete the previous tmp files associated with the session (if any)
+    Then redirect to interactive_experiment_details
     '''
     import tempfile
     import os
@@ -3029,17 +3030,17 @@ def interactive_experiment_get_data():
             repseqs_file.save(repseqs_tmp_file.name)
             repseqs_tmp_file_name = repseqs_tmp_file.name
 
-    # clear the previous tmp files of the user session
-    try:
-        if 'table_tmp_file_name' in session:
-            os.remove(session['table_tmp_file_name'])
-        if 'metadata_tmp_file_name' in session:
-            os.remove(session['metadata_tmp_file_name'])
-        if 'repseqs_tmp_file_name' in session:
-            if session['repseqs_tmp_file_name']:
-                os.remove(session['repseqs_tmp_file_name'])
-    except:
-        pass
+    # # clear the previous tmp files of the user session
+    # try:
+    #     if 'table_tmp_file_name' in session:
+    #         os.remove(session['table_tmp_file_name'])
+    #     if 'metadata_tmp_file_name' in session:
+    #         os.remove(session['metadata_tmp_file_name'])
+    #     if 'repseqs_tmp_file_name' in session:
+    #         if session['repseqs_tmp_file_name']:
+    #             os.remove(session['repseqs_tmp_file_name'])
+    # except:
+    #     pass
 
     # and set the new tmp file names in the session
     session['table_tmp_file_name'] = table_tmp_file_name
@@ -3048,6 +3049,22 @@ def interactive_experiment_get_data():
     session['experiment_name'] = experiment_name
     session['repseqs_tmp_file_name'] = repseqs_tmp_file_name
 
+    return redirect(url_for('.interactive_experiment_details'))
+
+@Site_Main_Flask_Obj.route('/interactive_experiment_get_example', methods=['POST', 'GET'])
+def interactive_experiment_get_example():
+    '''Prepare the analysis example dataset (when user presses the example link from the interactive webpage)
+    Set the temp file names and redirect to interactive_experiment_details
+    '''
+    # and set the new tmp file names to point to the example files
+    base_dir = './dbbact_website/static/analysis_example_data'
+    session['table_tmp_file_name'] = os.path.join(base_dir, 'table.biom')
+    session['metadata_tmp_file_name'] = os.path.join(base_dir, 'metadata.txt')
+    session['table_format'] = 'biom'
+    session['experiment_name'] = 'Chronic fatigue syndrome example'
+    session['repseqs_tmp_file_name'] = None
+
+    # and redirect
     return redirect(url_for('.interactive_experiment_details'))
 
 
@@ -3078,6 +3095,7 @@ def interactive_experiment_details():
         if len(cvals) == len(table.sample_metadata):
             continue
         cvals = [str(x) for x in cvals]
+        cvals = sorted(cvals)
         field_data[cfield] = cvals
 
     return render_header()+render_template('interactive_exp_details.html', num_samples = len(table.sample_metadata), num_features = len(table.feature_metadata), metadata_fields=field_data, field_data=field_data, experiment_name=experiment_name)
