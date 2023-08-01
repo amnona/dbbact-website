@@ -1,0 +1,7 @@
+[dbbact]
+module_name = dbbact_calour.dbbact
+class_name = DBBact
+skip_msg_study_info = yes
+skip_msg_annotation_info = yes
+dburl = https://api.dbbact.org
+web_interface = https://www.dbbact.org
