@@ -149,7 +149,10 @@
         if ( alert_text.length > 0 ) {
           console.log('showing alert');
           $('#GeneralAlert').show();
-      }
+        } else {
+          console.log('hiding alert');
+          $('#GeneralAlert').hide();
+        }
   </script>
   
     <div class="alert alert-danger collapse alert-dismissible" role="alert" id="GeneralAlert">
