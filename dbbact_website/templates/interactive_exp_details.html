@@ -1,0 +1,215 @@
+<script>
+    function validateForm() {
+        var group1Element = document.getElementById("group1");
+        var group2Element = document.getElementById("group2");
+        if (group1Element.options.length == 0 || group2Element.options.length == 0) {
+            alert("Please select at least one item in each group.");
+            return false;
+        }
+        return true;
+    }
+
+    function updateItemList() {
+        // get the selected metadata field
+        var metadataField = document.getElementById("metadata-field").value;
+        // get the list of items for the selected metadata field
+        var itemList = field_data[metadataField];
+
+        // clear the group1 and group2 selectlists
+        var group1Element = document.getElementById("group1");
+        group1Element.innerHTML = "";
+        var group2Element = document.getElementById("group2");
+        group2Element.innerHTML = "";
+    
+        // update the item selectlist
+        var itemSelectElement = document.getElementById("item-list");
+        itemSelectElement.innerHTML = "";
+        for (var i = 0; i < itemList.length; i++) {
+                var item = itemList[i];
+                var itemOptionElement = document.createElement("option");
+                itemOptionElement.setAttribute("value", item);
+                itemOptionElement.innerHTML = item;
+                itemSelectElement.appendChild(itemOptionElement);
+            }
+        // if itemList contains only 2 items, add one to group1 and one to group2
+        if (itemList.length == 2) {
+            itemSelectElement.selectedIndex = 0;
+            addItemToGroup(1);
+            itemSelectElement.selectedIndex = 0;
+            addItemToGroup(2);
+        }
+    }
+
+    function addItemToGroup(group_id) {
+        var groupElement = document.getElementById("group"+group_id.toString());
+        var itemSelectElement = document.getElementById("item-list");
+        var options = itemSelectElement.options;
+        for (var i = 0; i < options.length; i++) {
+            if (options[i].selected) {
+                var itemOptionElement = document.createElement("option");
+                itemOptionElement.setAttribute("value", options[i].value);
+                itemOptionElement.innerHTML = options[i].value;
+                groupElement.appendChild(itemOptionElement);
+            }
+        }
+        removeItemsFromGroup("item-list");
+    }
+
+    function removeItemsFromGroup(item_id) {
+        var groupElement = document.getElementById(item_id);
+        var options = groupElement.options;
+        for (var i = options.length - 1; i >= 0; i--) {
+            if (options[i].selected) {
+                options[i].remove();
+            }
+        }
+    }
+
+    function removeSelectedItems(group_id) {
+        var cgroup = "group"+group_id.toString();
+        var groupElement = document.getElementById(cgroup);
+        var itemSelectElement = document.getElementById("item-list");
+        var options = groupElement.options;
+        for (var i = 0; i < options.length; i++) {
+            if (options[i].selected) {
+                var itemOptionElement = document.createElement("option");
+                itemOptionElement.setAttribute("value", options[i].value);
+                itemOptionElement.innerHTML = options[i].value;
+                itemSelectElement.appendChild(itemOptionElement);
+            }
+        }
+        removeItemsFromGroup(cgroup);
+    }
+</script>
+
+<h1>Uploaded dataset details</h1>
+    <h2>Name: {{ experiment_name }}</h2>
+    Number of samples: {{ num_samples }}<br>
+    Number of features: {{ num_features }}<br><br>
+<h1>Select action</h1>
+<div class="m-4">
+    <div class="accordion" id="myAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingOne">
+                <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#collapseOne"><h2>Interactive Heatmap</h2></button>
+            </h2>
+            <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#myAccordion">
+                <div class="card-body">
+                    <form action="interactive_heatmap_submit" method='post' target="_blank">
+                        Select field to sort the samples by:
+                        <select id="metadata-field-heatmap" name="metadata_field_heatmap" onchange="updateItemList()" style="width: 30%">
+                            <option value="none">None</option>
+                            {% for value in metadata_fields %}
+                                <option value="{{ value }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                        <br>
+                        <br>
+                        <button type="submit">Generate Heatmap</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingTwo">
+                <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#collapseTwo"><h2>Experiment Wordcloud</h2></button>
+            </h2>
+            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#myAccordion">
+                <div class="card-body">
+                    <!-- <select id="wordcloud filtering" name="wordcloud_filtering" style="width: 30%">
+                        <option value="none">None</option>
+                        <option value="prevalence">Prevalence > 0.3</option>
+                        <option value="linear">Linear weight</option>
+                        <option value="log">Log weight</option>
+                        <option value="rank">Rank weight</option>
+                    </select><br><br> -->
+                    <button type="button" onclick="window.open('wordcloud_analysis', '_blank')">Experiment wordcloud</button>
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingThree">
+                <button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#collapseThree"><h2>Term Enrichment</h2></button>
+            </h2>
+            <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#myAccordion">
+                <div class="card-body">                
+                    <form id="term_enrichment_form" action="interactive_metadata_submit" onsubmit="return validateForm()" method='post' target="_blank">
+                        Select metadata field for the two group enrichment analysis:
+                        <select id="metadata-field" name="metadata_field" onchange="updateItemList()" style="width: 30%">
+                            {% for value in metadata_fields %}
+                                <option value="{{ value }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                        <br>
+                        <div>
+                            <h2>Field Values</h2>
+                                <select id="item-list" multiple="multiple" style="width: 25%; height: 20%;">
+                                </select>
+                                <button type="button" onclick="addItemToGroup(1)">Group1</button>
+                                <button type="button" onclick="addItemToGroup(2)">Group2</button>
+                        </div>
+                            <!-- <div style="display: flex;"> -->
+                            <div style="display: flex; width: 80%; height: 35%">
+                                <div style="width: 25%;">
+                                    <h2>Group 1</h2>
+                                    <select id="group1" name="group1[]" multiple="multiple" style="width: 100%; height: 50%;"></select>
+                                    <button type="button" onclick="removeSelectedItems(1)">Remove</button>
+                                </div>
+                                <div style="width: 25%;">
+                                    <h2>Group 2</h2>
+                                    <select id="group2" name="group2[]" multiple="multiple" style="width: 100%; height: 50%;"></select>
+                                    <button type="button" onclick="removeSelectedItems(2)">Remove</button>
+                                </div>
+                            </div>
+                            <div>
+                                <button type="submit" name="term_enrichment" value="term_enrichment">Term enrichment</button>
+                                <input name="group1_values" hidden="hidden" value="" name="group1_values">
+                                <input name="group2_values" hidden="hidden" value="" name="group2_values">
+                            </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var field_data = {{ field_data|safe }};
+    // var field_data = {'field1': ['item1', 'item2', 'item3'], 'field2': ['item4', 'item5', 'item6']};
+    // populate the metadata field selectlist
+    var metadataField = document.getElementById("metadata-field");
+    for (var field in field_data) {
+        var fieldOptionElement = document.createElement("option");
+        fieldOptionElement.setAttribute("value", field);
+        fieldOptionElement.innerHTML = field;
+        metadataField.appendChild(fieldOptionElement);
+    }
+    // and update the item list
+    updateItemList();
+
+    // fix the form submit so we also submit the group1 and group2 non-selected values
+    // get the element for the term_enrichment form
+    var formElement = document.getElementById("term_enrichment_form");
+    console.log(formElement);
+    formElement.addEventListener("submit", function(event) {
+        var group1valsElement= document.getElementsByName("group1_values");
+        var vals1 = [];
+        group1Element = document.getElementById("group1");
+        for (var i = 0; i < group1Element.options.length; i++) {
+            vals1.push(group1Element.options[i].value);
+        }
+        var group2valsElement= document.getElementsByName("group2_values");
+        var vals2 = [];
+        group2Element = document.getElementById("group2");
+        for (var i = 0; i < group2Element.options.length; i++) {
+            vals2.push(group2Element.options[i].value);
+        }
+        group1valsElement[0].value = vals1
+        group2valsElement[0].value = vals2
+     });
+
+
+</script>
+
+</body>
+</html>

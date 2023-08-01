@@ -1,0 +1,8 @@
+[dbbact]
+module_name = dbbact_calour.dbbact
+class_name = DBBact
+skip_msg_study_info = yes
+skip_msg_annotation_info = yes
+dburl = http://127.0.0.1:7001
+web_interface = http://127.0.0.1:7000
+

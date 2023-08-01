@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive biom table analysis</title>
+    <script>
+        function validateForm() {
+            var tableFile = document.getElementById("table-file").value;
+            var metadataFile = document.getElementById("metadata-file").value;
+            if (tableFile == "" || metadataFile == "") {
+                alert("Please select both a table file and a metadata file.");
+                return false;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Step 1: Upload the reads table and metadata file</h1>
+    <div>
+        <!-- <form action="interactive_metadata_select" onsubmit="return validateForm()" method='post' enctype = "multipart/form-data"> -->
+        <form action="interactive_experiment_get_data" onsubmit="return validateForm()" method='post' enctype = "multipart/form-data">
+            <h2>Reads table</h2>
+            The denoinsed reads table (.biom or qiime2 .qza).<br>
+            Reads must be left trimmed to begin with one of the dbBact primers (V1/V3/V4).<br><br>
+            <label for="table-file">Table file:</label>
+            <input type="file" id="table-file" name="table-file" accept=".qza,.biom"><br><br>
+
+            <div id="repseqs">
+                <h2>representative sequences</h2>
+                If the qiime2 table was denoised without the sequences embedded (i.e. without the --p-no-hashed-feature-ids flag), you must also upload the representative sequences file (.qza).<br>
+                <label for="repseqs-file">Representative sequences file (.qza):</label>
+                <input type="file" id="repseqs-file" name="repseqs-file" accept=".qza"><br><br>
+            </div>
+
+            <h2>Sample metadata</h2>
+            A tab-separated file with the per-sample metadata.<br>
+            First column should cotain the sample name (correspondinh to the sample names in the reads table)<br><br>
+            <label for="metadata-file">Metadata file:</label>
+            <input type="file" id="metadata-file" name="metadata-file" accept=".tsv,.txt"><br><br>
+
+            <h2>Experiment name</h2>
+            A name to be associated with this dataset (optional)<br><br>
+            <label for="experiment_name">Experiment name (optional):</label>
+            <input type="text" id="experiment_name" name="experiment_name"><br><br>
+
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+    <br><br>
+    <center><h2>Or click <a href="/interactive_experiment_get_example">here</a> for example dataset</h2></center>
+    <center>(Data from: Giloteaux et al. (2016). Reduced diversity and altered composition of the gut microbiome in individuals with myalgic encephalomyelitis/chronic fatigue syndrome. <a href="https://doi.org/10.1186/s40168-016-0171-4" target="_blank">Microbiome, 4(1), 1-12</a>)</center>
+</body>
+
+<script>
+    // hide the repseqs div upon page load
+    $('#repseqs').hide();
+
+    // when the user selects a file, check if it is a qiime2 table
+    // if it is, show the repseqs div
+    // if it isn't, hide the repseqs div
+    $('#table-file').change(function() {
+        console.log('table file changed');
+        var file = $('#table-file')[0].files[0];
+        console.log(file);
+        if (file.name.endsWith('.qza')) {
+            console.log('file is qza');
+            $('#repseqs').show();
+        } else {
+            console.log('file is not qza');
+            $('#repseqs').hide();
+        }
+    });
+</script>
+</html>
