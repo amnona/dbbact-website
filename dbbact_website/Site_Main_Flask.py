@@ -2029,7 +2029,7 @@ def download_fscores_sequences_form():
 
     # get the experiment annotations
     ignore_exp = []
-    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=True)
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     output = 'term\tf-score\trecall\tprecision\tcount\n'
@@ -2371,7 +2371,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     else:
         num_anno = len(annotations)
     debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (num_anno, num_seqanno, ignore_exp, num_seqs))
-    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=True)
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     # draw the wordcloud for the group terms
