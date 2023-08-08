@@ -2029,7 +2029,7 @@ def download_fscores_sequences_form():
 
     # get the experiment annotations
     ignore_exp = []
-    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     output = 'term\tf-score\trecall\tprecision\tcount\n'
@@ -2371,7 +2371,7 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
     else:
         num_anno = len(annotations)
     debug(2, 'calculating fscore using %d annotations, %d seqannotations, ignore_exp=%s and %d sequences' % (num_anno, num_seqanno, ignore_exp, num_seqs))
-    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     # draw the wordcloud for the group terms
@@ -3130,7 +3130,7 @@ def wordcloud_analysis():
     else:
         return 'method %s not supported' % method
 
-    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     debug(2,'drawing wordcloud')
     f = dbc.draw_wordcloud(table, freq_weighted=freq_weighted)
     figfile = BytesIO()
@@ -3351,7 +3351,7 @@ def single_term_analysis(term):
     dd = ca.read_amplicon(dd_tmp_file_name+'.biom', dd_tmp_file_name+'_sample.txt', feature_metadata_file=dd_tmp_file_name+'_feature.txt', normalize=None, min_reads=0)
     debug(2, 'loaded diff abundance results from tmp file %s' % dd_tmp_file_name)
 
-    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address())
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     group1_size = np.sum(dd.feature_metadata['_calour_stat']>0)
     group2_size = np.sum(dd.feature_metadata['_calour_stat']<0)
     f, overlaps, venn_pval = dbc.plot_term_venn_all(search_term,dd,max_size=np.max([group1_size,group2_size])*1.5, term_names=term)
