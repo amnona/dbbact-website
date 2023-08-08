@@ -18,7 +18,6 @@ app.register_blueprint(Site_Main_Flask_Obj)
 def before_request():
     if request.remote_addr != '127.0.0.1':
         debug(6, 'got request for page %s' % request.url, request=request)
-        g.local_request = False
     else:
         debug(6, 'got local request for page %s' % request.url, request=request)
 
