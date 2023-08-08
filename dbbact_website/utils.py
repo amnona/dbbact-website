@@ -7,7 +7,7 @@ import datetime
 debuglevel = 6
 
 
-def debug(level, msg):
+def debug(level, msg, request=None):
     """
     print a debug message
 
@@ -16,6 +16,10 @@ def debug(level, msg):
         error level (0=debug, 4=info, 7=warning,...10=critical)
     msg : str
         the debug message
+    request: requests.Request or None, optional
+        not None to write the source address of the request
+    ofile: str or None, optional
+        name of file to write the debug info into, or None to print to stderr
     """
     global debuglevel
 
@@ -29,7 +33,18 @@ def debug(level, msg):
             cfile = 'NA'
             cline = 'NA'
             cfunction = 'NA'
-        print('[%s] [%d] [%s:%s:%s] %s' % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), level, cfile, cfunction, cline, msg), file=sys.stderr, flush=True)
+        omsg = '[%s] [%d] [%s:%s:%s] ' % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), level, cfile, cfunction, cline)
+        if request is not None:
+            try:
+                if request.environ.get('HTTP_X_FORWARDED_FOR') is None:
+                    source = request.environ['REMOTE_ADDR']
+                else:
+                    source = request.environ['HTTP_X_FORWARDED_FOR']
+            except:
+                source = 'Failed'
+            omsg += '[IP: %s] ' % source
+        omsg += '%s' % msg
+        print(omsg, file=sys.stderr, flush=True)
 
 
 def SetDebugLevel(level):
