@@ -2029,7 +2029,7 @@ def download_fscores_sequences_form():
 
     # get the experiment annotations
     ignore_exp = []
-    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=True)
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=ignore_exp, term_info=term_info)
 
     output = 'term\tf-score\trecall\tprecision\tcount\n'
