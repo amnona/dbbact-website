@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from .Site_Main_Flask import Site_Main_Flask_Obj
 import os
 from .utils import debug, SetDebugLevel
@@ -11,6 +11,16 @@ recentLoginUsers = []
 app = Flask(__name__)
 app.secret_key = 'batata'
 app.register_blueprint(Site_Main_Flask_Obj)
+
+
+# whenever a new request arrives, log the originating ip for debugging
+@app.before_request
+def before_request():
+    if request.remote_addr != '127.0.0.1':
+        debug(6, 'got request for page %s' % request.url, request=request)
+        g.local_request = False
+    else:
+        debug(6, 'got local request for page %s' % request.url, request=request)
 
 
 def gunicorn(debug_level=6):
