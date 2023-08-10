@@ -2938,7 +2938,7 @@ def interactive():
     * term enrichment analysis
     
     When submitted, goes to interactive_experiment_get_data'''
-    webPage = render_header() + render_template('interactive.html')
+    webPage = render_header() + render_template('interactive.html') + render_template('footer.html')
     return webPage
 
 
@@ -3098,7 +3098,7 @@ def interactive_experiment_details():
         cvals = sorted(cvals)
         field_data[cfield] = cvals
 
-    return render_header()+render_template('interactive_exp_details.html', num_samples = len(table.sample_metadata), num_features = len(table.feature_metadata), metadata_fields=field_data, field_data=field_data, experiment_name=experiment_name)
+    return render_header()+render_template('interactive_exp_details.html', num_samples = len(table.sample_metadata), num_features = len(table.feature_metadata), metadata_fields=field_data, field_data=field_data, experiment_name=experiment_name) + render_template('footer.html')
 
 
 @Site_Main_Flask_Obj.route('/wordcloud_analysis', methods=['POST', 'GET'])
@@ -3150,7 +3150,7 @@ def wordcloud_analysis():
     # return render_template('tmp_heatmap.html')
 
     # create an html page with a download button that downloads the e.feature_metadata pandas dataframe
-    return render_header() + render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(figdata_png), figure_link='/download_file/%s' % figdat_md5)
+    return render_header() + render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(figdata_png), figure_link='/download_file/%s' % figdat_md5) + render_template('footer.html')
 
 
 @Site_Main_Flask_Obj.route('/interactive_metadata_submit', methods=['POST', 'GET'])
@@ -3294,7 +3294,7 @@ def interactive_metadata_submit2():
 
     return render_header() + render_template('enriched-terms.html', toptermimage=urllib.parse.quote(figdata_png), 
                                              field=metadata_field, group1=metadata_group1, group2=metadata_group2,group1_samples=group1_samples,group2_samples=group2_samples,group1_size=group1_size,group2_size=group2_size,terms=term_results,
-                                             enriched_terms_link='/download_file/%s' % md5sum, figure_link='/download_file/%s' % figdat_md5, diff_abundance_link='/download_file/%s' % dd_md5)
+                                             enriched_terms_link='/download_file/%s' % md5sum, figure_link='/download_file/%s' % figdat_md5, diff_abundance_link='/download_file/%s' % dd_md5) + render_template('footer.html')
 
 
 @Site_Main_Flask_Obj.route('/download_file/<string:md5sum>')
@@ -3398,7 +3398,7 @@ def single_term_analysis(term):
     return render_header() + render_template('enriched-term-info.html', venn_image=urllib.parse.quote(fig_venn_data_png), sample_fscore_image=urllib.parse.quote(fig_fscores_data_png),
                                              term=term, field=metadata_field, group1=metadata_group1, group1_samples=group1_size, group2=metadata_group2, group2_samples=group2_size,
                                              venn_pval=venn_pval, sample_fscore_pval=sample_fscore_pval,
-                                             venn_figure_link='/download_file/%s' % fig_venn_data_md5, fscores_figure_link='/download_file/%s' % fig_fscores_data_md5)
+                                             venn_figure_link='/download_file/%s' % fig_venn_data_md5, fscores_figure_link='/download_file/%s' % fig_fscores_data_md5) + render_template('footer.html')
 
 
 @Site_Main_Flask_Obj.route('/interactive_heatmap_submit', methods=['POST', 'GET'])
