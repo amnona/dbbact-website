@@ -1,0 +1,8 @@
+User-Agent: *
+Disallow: /sequence_annotations/
+Disallow: /ontology_info/
+Disallow: /user_info/
+Disallow: /annotation_info/
+Disallow: /annotation_seqs/
+Disallow: /species_info/
+Sitemap: https://www.dbbact.org/sitemap.xml
