@@ -15,7 +15,7 @@ mpl.use('Agg')
 import numpy as np
 import scipy.stats
 
-from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app, session, send_file
+from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app, session, send_file, current_app
 
 from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
 from . import enrichment
@@ -27,6 +27,58 @@ Site_Main_Flask_Obj = Blueprint('Site_Main_Flask_Obj', __name__, template_folder
 
 # the dbbact rest-api server address
 dbbact_server_address = get_dbbact_server_address()
+
+
+# robots.txt file for google/other web crawlers
+@Site_Main_Flask_Obj.route("/robots.txt")
+def robots_txt():
+    return render_template('robots.txt')
+
+
+# Sitemap for google/other web crawlers
+@Site_Main_Flask_Obj.route("/sitemap")
+@Site_Main_Flask_Obj.route("/sitemap/")
+@Site_Main_Flask_Obj.route("/sitemap.xml")
+def sitemap():
+    """
+        Route to dynamically generate a sitemap of your website/application.
+        lastmod and priority tags omitted on static pages.
+        lastmod included on dynamic content such as blog posts.
+
+        based on:
+        https://gist.github.com/Julian-Nash/aa3041b47183176ca9ff81c8382b655a
+    """
+    from urllib.parse import urlparse
+
+    host_components = urlparse(request.host_url)
+    host_base = host_components.scheme + "://" + host_components.netloc
+
+    # Static routes with static content
+    static_urls = list()
+    # skip_urls = ['/sequence_annotations', '/ontology_info','/user_info','/annotation_info','/annotation_seqs','/species_info']
+    for rule in current_app.url_map.iter_rules():
+    #     skip_addr = False
+    #     for url in skip_urls:
+    #         if str(rule).startswith(url):
+    #             skip_addr = True
+    #             break
+    #     if skip_addr:
+    #         continue
+        if "GET" in rule.methods and len(rule.arguments) == 0:
+            url = {
+                "loc": f"{host_base}{str(rule)}"
+            }
+            static_urls.append(url)
+
+    # Dynamic routes with dynamic content
+    dynamic_urls = list()
+
+    xml_sitemap = render_template("sitemap.xml", static_urls=static_urls, dynamic_urls=dynamic_urls, host_base=host_base)
+    response = make_response(xml_sitemap)
+    response.headers["Content-Type"] = "application/xml"
+
+    return response
+
 
 @Site_Main_Flask_Obj.route('/', methods=['POST', 'GET'])
 def landing_page():
