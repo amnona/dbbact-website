@@ -493,6 +493,7 @@ def search_results():
             file.save(filepos)
             with open(filepos) as textfile:
                 seqs = get_fasta_seqs(textfile)
+                debug(2,'sequences: %s' % seqs)
             os.remove(filepos)
             # if no sequences in fasta file - return error message
             if seqs is None:
