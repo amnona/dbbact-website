@@ -125,7 +125,7 @@ def get_fasta_seqs(file):
     isfasta = False
     for cline in file:
         cline = cline.strip()
-        if len(cline==0):
+        if len(cline)==0:
             continue
         if cline[0] == '>':
             isfasta = True
