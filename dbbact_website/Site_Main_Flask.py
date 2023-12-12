@@ -619,6 +619,9 @@ def sequence_annotations(sequence):
             else:
                 sequence = close_seqs[0]['sequence']
                 num_mismatches = close_seqs[0]['num_mismatches']
+        else:
+            # we didn't find any match, so lets try if the sequence is left trimmed
+            pass
 
     # Get the taxonomy for the sequence
     rdata = {}
