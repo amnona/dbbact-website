@@ -3480,3 +3480,13 @@ def interactive_heatmap_submit():
     debug(2, 'drawing heatmap')
     table.export_html(output_file='./dbbact_website/templates/tmp_heatmap.html',sample_field=metadata_field)
     return render_template('tmp_heatmap.html')
+
+
+@Site_Main_Flask_Obj.route('/get_sequences_stats', methods=['POST', 'GET'])
+def get_sequences_stats():
+    alldat = request.get_json()
+    if 'sequences' not in alldat:
+        return 'Error: no sequences field provided in json'
+    sequences = alldat.get('sequences')
+    res = {'fscores': {'amnon': 0.4, 'batata': 0.3}, 'annotations': ['higher in fish compared to frog', 'common in batata', 'dominant in birds']}
+    return res
