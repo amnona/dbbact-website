@@ -3515,3 +3515,5 @@ def get_sequences_stats():
     return res
 
 @Site_Main_Flask_Obj.route('sequence_annotations_m/<string:sequence>', methods=['POST', 'GET'])
+def sequence_annotations_m():
+    return ''
