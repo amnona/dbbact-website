@@ -3505,7 +3505,7 @@ def get_sequences_stats():
 
     # get the fscores for the sequences
     dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
-    fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=None, term_info=term_info)
+    fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, term_info=term_info)
     # get the string descriptions for the sequences annotations
     desc = []
     for canno in annotations:
