@@ -3508,8 +3508,10 @@ def get_sequences_stats():
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, term_info=term_info)
     # get the string descriptions for the sequences annotations
     desc = []
+    debug(5,'getting strings')
+    debug(5,annotations)
     for canno in annotations:
-        print(canno)
+        debug(5,canno)
         cdesc = getannotationstrings(canno)
         desc.append(cdesc)
     res = {'fscores': fscores, 'annotations': desc}
