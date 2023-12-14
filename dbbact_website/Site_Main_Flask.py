@@ -3487,6 +3487,31 @@ def get_sequences_stats():
     alldat = request.get_json()
     if 'sequences' not in alldat:
         return 'Error: no sequences field provided in json'
-    sequences = alldat.get('sequences')
-    res = {'fscores': {'amnon': 0.4, 'batata': 0.3}, 'annotations': ['higher in fish compared to frog', 'common in batata', 'dominant in birds']}
+    seqs = alldat.get('sequences')
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
+                       json={'sequences': seqs})
+    if res.status_code != 200:
+        msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
+        debug(6, msg)
+        return msg, msg
+    res = res.json()
+    annotations = res['annotations']
+    seqannotations = res['seqannotations']
+    if len(seqannotations) == 0:
+        msg = 'None of the %d sequences were found in dbBact. Are these >100bp long 16S sequences?\nNote dbBact is populated mostly by EMP V4 (515F) amplicon sequences.' % len(seqs)
+        debug(3, msg)
+        return msg, msg
+    term_info = res['term_info']
+
+    # get the fscores for the sequences
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
+    fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, ignore_exp=None, term_info=term_info)
+    # get the string descriptions for the sequences annotations
+    desc = []
+    for canno in annotations:
+        cdesc = getannotationstrings(canno)
+        desc.append(cdesc)
+    res = {'fscores': fscores, 'annotations': desc}
     return res
+
+@Site_Main_Flask_Obj.route('sequence_annotations_m/<string:sequence>', methods=['POST', 'GET'])
