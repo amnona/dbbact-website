@@ -3509,6 +3509,7 @@ def get_sequences_stats():
     # get the string descriptions for the sequences annotations
     desc = []
     for canno in annotations:
+        print(canno)
         cdesc = getannotationstrings(canno)
         desc.append(cdesc)
     res = {'fscores': fscores, 'annotations': desc}
