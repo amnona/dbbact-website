@@ -3488,6 +3488,7 @@ def get_sequences_stats():
     if 'sequences' not in alldat:
         return 'Error: no sequences field provided in json'
     seqs = alldat.get('sequences')
+    debug(2, 'getting annotations for %d sequences' % len(seqs))
     res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
                        json={'sequences': seqs})
     if res.status_code != 200:
@@ -3503,15 +3504,14 @@ def get_sequences_stats():
         return msg, msg
     term_info = res['term_info']
 
+    debug(2,'got %d annotations' % len(annotations))
+
     # get the fscores for the sequences
     dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, term_info=term_info)
     # get the string descriptions for the sequences annotations
     desc = []
-    debug(5,'getting strings')
-    debug(5,annotations)
-    for canno in annotations:
-        debug(5,canno)
+    for cid,canno in annotations.items():
         cdesc = getannotationstrings(canno)
         desc.append(cdesc)
     res = {'fscores': fscores, 'annotations': desc}
