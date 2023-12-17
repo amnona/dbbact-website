@@ -493,6 +493,7 @@ def search_results():
             file.save(filepos)
             with open(filepos) as textfile:
                 seqs = get_fasta_seqs(textfile)
+                debug(2,'sequences: %s' % seqs)
             os.remove(filepos)
             # if no sequences in fasta file - return error message
             if seqs is None:
@@ -619,6 +620,9 @@ def sequence_annotations(sequence):
             else:
                 sequence = close_seqs[0]['sequence']
                 num_mismatches = close_seqs[0]['num_mismatches']
+        else:
+            # we didn't find any match, so lets try if the sequence is left trimmed
+            pass
 
     # Get the taxonomy for the sequence
     rdata = {}
@@ -843,19 +847,23 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
     return '', webPage
 
 
-def getannotationstrings(cann):
+def getannotationstrings(cann, use_descriptions=True):
     """
     get a nice string summary of a curation
 
     input:
     cann : dict from /sequences/get_annotations (one from the list)
+    use_descriptions : bool
+        True to include the free text description in the output
+
     output:
     cdesc : str
         a short summary of each annotation
     """
     cdesc = ''
-    if cann['description']:
-        cdesc += cann['description'] + ' ('
+    if use_descriptions:
+        if cann['description']:
+            cdesc += cann['description'] + ' ('
     if cann['annotationtype'] == 'diffexp':
         chigh = []
         clow = []
@@ -893,8 +901,9 @@ def getannotationstrings(cann):
     if len(cdesc) >= 1 and cdesc[-1] == ',':
         cdesc = cdesc[:-1]
 
-    if cann['description']:
-        cdesc += ')'
+    if use_descriptions:
+        if cann['description']:
+            cdesc += ')'
     return cdesc
 
 
@@ -3476,3 +3485,62 @@ def interactive_heatmap_submit():
     debug(2, 'drawing heatmap')
     table.export_html(output_file='./dbbact_website/templates/tmp_heatmap.html',sample_field=metadata_field)
     return render_template('tmp_heatmap.html')
+
+
+@Site_Main_Flask_Obj.route('/get_sequences_stats', methods=['POST', 'GET'])
+def get_sequences_stats():
+    alldat = request.get_json()
+    if 'sequences' not in alldat:
+        return 'Error: no sequences field provided in json'
+    seqs = alldat.get('sequences')
+    debug(2, 'getting annotations for %d sequences' % len(seqs))
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
+                       json={'sequences': seqs})
+    if res.status_code != 200:
+        msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
+        debug(6, msg)
+        return msg, msg
+    res = res.json()
+    annotations = res['annotations']
+    seqannotations = res['seqannotations']
+    if len(seqannotations) == 0:
+        msg = 'None of the %d sequences were found in dbBact. Are these >100bp long 16S sequences?\nNote dbBact is populated mostly by EMP V4 (515F) amplicon sequences.' % len(seqs)
+        debug(3, msg)
+        return msg, msg
+    term_info = res['term_info']
+
+    debug(2,'got %d annotations' % len(annotations))
+
+    # get the fscores for the sequences
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
+    fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, term_info=term_info)
+
+    res = requests.get(get_dbbact_server_address() + '/experiments/get_experiments_list')
+    if res.status_code != 200:
+        msg = 'error getting experiments list'
+        debug(6, msg)
+        return msg, msg
+    res = res.json()
+    exps = {}
+    for cexp in res['explist']:
+        cname = 'NA'
+        for cdet in cexp[1]:
+            if cdet[0] == 'name':
+                cname = cdet[1]
+                break
+        exps[cexp[0]]=cname
+
+    desc = []
+    for cid,canno in annotations.items():
+        ctext = getannotationstrings(canno, use_descriptions=False)
+        cdesc = canno.get('description', None)
+        cexp = exps.get(canno['expid'], 'NA')
+        clink = 'https://dbbact.org/annotation_info/%s' % cid
+        cdat = {'text': ctext, 'experiment': cexp, 'description': cdesc, 'link': clink}
+        desc.append(cdat)
+    res = {'fscores': fscores, 'annotations': desc}
+    return res
+
+@Site_Main_Flask_Obj.route('/sequence_annotations_m/<string:sequence>', methods=['POST', 'GET'])
+def sequence_annotations_m():
+    return ''
