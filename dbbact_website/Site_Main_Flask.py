@@ -3535,7 +3535,7 @@ def get_sequences_stats():
         ctext = getannotationstrings(canno, use_descriptions=False)
         cdesc = canno.get('description', None)
         cexp = exps.get(canno['expid'], 'NA')
-        clink = 'https://dbbact.org/annotation_info/%d' % cid
+        clink = 'https://dbbact.org/annotation_info/%s' % cid
         cdat = {'text': ctext, 'experiment': cexp, 'description': cdesc, 'link': clink}
         desc.append(cdat)
     res = {'fscores': fscores, 'annotations': desc}
