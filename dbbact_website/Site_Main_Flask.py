@@ -847,19 +847,23 @@ def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=Fa
     return '', webPage
 
 
-def getannotationstrings(cann):
+def getannotationstrings(cann, use_descriptions=True):
     """
     get a nice string summary of a curation
 
     input:
     cann : dict from /sequences/get_annotations (one from the list)
+    use_descriptions : bool
+        True to include the free text description in the output
+
     output:
     cdesc : str
         a short summary of each annotation
     """
     cdesc = ''
-    if cann['description']:
-        cdesc += cann['description'] + ' ('
+    if use_descriptions:
+        if cann['description']:
+            cdesc += cann['description'] + ' ('
     if cann['annotationtype'] == 'diffexp':
         chigh = []
         clow = []
@@ -897,8 +901,9 @@ def getannotationstrings(cann):
     if len(cdesc) >= 1 and cdesc[-1] == ',':
         cdesc = cdesc[:-1]
 
-    if cann['description']:
-        cdesc += ')'
+    if use_descriptions:
+        if cann['description']:
+            cdesc += ')'
     return cdesc
 
 
@@ -3509,11 +3514,25 @@ def get_sequences_stats():
     # get the fscores for the sequences
     dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, term_info=term_info)
-    # get the string descriptions for the sequences annotations
+
+    res = requests.get(get_dbbact_server_address() + '/experiments/get_experiments_list')
+    if res.status_code != 200:
+        msg = 'error getting experiments list'
+        debug(6, msg)
+        return msg, msg
+    res = res.json()
+    exps = {}
+    for cexp in res['explist']:
+        exps[cexp[0]]=cexp[1].get('name','NA')
+
     desc = []
     for cid,canno in annotations.items():
-        cdesc = getannotationstrings(canno)
-        desc.append(cdesc)
+        ctext = getannotationstrings(canno, use_descriptions=False)
+        cdesc = canno.get('description', None)
+        cexp = exps.get(canno['expid'], 'NA')
+        clink = 'https://dbbact.org/annotation_info/%d' % cid
+        cdat = {'text': ctext, 'experiment': cexp, 'description': cdesc, 'link': clink}
+        desc.append(cdat)
     res = {'fscores': fscores, 'annotations': desc}
     return res
 
