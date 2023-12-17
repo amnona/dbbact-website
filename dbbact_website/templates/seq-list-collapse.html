@@ -11,7 +11,7 @@
 
  </style>
 
-<div id="seqlist-panel" class="panel panel-default">
+<div id="seq2list-panel" class="panel panel-default">
   <div class="panel-heading">
     {{ title }}:
   </div>
@@ -19,20 +19,20 @@
   <div id="seqlist-box" class="panel-body">
     Total sequences : {{seq_count}}
     <br>
-    <button id="collapse-btn" data-toggle="collapse" data-target="#seqlist">Show sequences</button>
+    <button id="collapse-btn" data-bs-toggle="collapse" data-bs-target="#seq2list">Show sequences</button>
     <br>
-    <div id="seqlist" class="collapse">
+    <div id="seq2list" class="collapse">
       <table id="seq-list-seq-list-tbl" class="table responsive" style="width: 100%;">
-      <thead>
-        <tr>
-          <th>Sequence</th>
-          <th>Mismatches</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{ details | safe}}
-      </tbody>
-    </table>
+        <thead>
+          <tr>
+            <th>Sequence</th>
+            <th>Mismatches</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ details | safe}}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -43,7 +43,7 @@
     $('#seq-list-seq-list-tbl').DataTable({'scrollX': true, 'autoWidth': true, 'paging': true, 'lengthMenu':[10, 25, 50, 100, -1], 'pageLength': 10, 'aaSorting': []});
 } );
 
-$('#seqlist').on('shown.bs.collapse', function() {
+$('#seq2list').on('shown.bs.collapse', function() {
    $('#seq-list-seq-list-tbl').DataTable().columns.adjust().draw();
  });
 </script>
