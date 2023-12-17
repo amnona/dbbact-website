@@ -3523,7 +3523,12 @@ def get_sequences_stats():
     res = res.json()
     exps = {}
     for cexp in res['explist']:
-        exps[cexp[0]]=cexp[1].get('name','NA')
+        cname = 'NA'
+        for cdet in cexp[1]:
+            if cdet[0] == 'name':
+                cname = cdet[1]
+                break
+        exps[cexp[0]]=cname
 
     desc = []
     for cid,canno in annotations.items():
