@@ -3541,6 +3541,91 @@ def get_sequences_stats():
     res = {'fscores': fscores, 'annotations': desc}
     return res
 
-@Site_Main_Flask_Obj.route('/sequence_annotations_m/<string:sequence>', methods=['POST', 'GET'])
-def sequence_annotations_m():
-    return ''
+@Site_Main_Flask_Obj.route('/sequences_fscores', methods=['POST', 'GET'])
+def sequences_fscores():
+    '''Return the term f-scores associated with a set of sequences
+    
+    json parameters:
+        sequences: list of str
+            the sequences (ACGT) to get the f-scores for
+            NOTE: the sequences should be >100bp long 16S sequences from one of the supported dbBact regions
+        score_method: str, optional
+            'fscore' (default), 'recall', 'precision'
+            the values to get the per-terms scores for
+            precision: the fraction of per-sequence annotations that contain the term
+            recall: the fraction of all annotations containing the term that are associated with the sequence
+            fscore combines the recall and precision
+        normalize: bool, optional
+            True (default) to normalize the f-scores to a scale of 0-1 (max=1)
+            False to return the raw f-scores
+    Returns
+    -------
+    'fscores': dict of str:float
+        the f-scores for each term (mean over all the sequences)
+    '''
+    alldat = request.get_json()
+    if 'sequences' not in alldat:
+        debug(6, 'Error: no sequences field provided in json')
+        return 'Error: no sequences field provided in json', 400
+    seqs = alldat.get('sequences')
+    score_method = alldat.get('score_method', 'fscore')
+    normalize = alldat.get('normalize', True)
+
+    debug(2, 'getting annotations for %d sequences' % len(seqs))
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
+                       json={'sequences': seqs})
+    if res.status_code != 200:
+        msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
+        debug(6, msg)
+        return msg, 400
+    res = res.json()
+
+    annotations = res['annotations']
+    term_info = res['term_info']
+    seqannotations = res['seqannotations']
+    if len(seqannotations) == 0:
+        msg = 'None of the %d sequences were found in dbBact. Are these >100bp long 16S sequences?\nNote dbBact is populated mostly by EMP V4 (515F) amplicon sequences.' % len(seqs)
+        debug(3, msg)
+        return msg, 400
+
+    debug(2,'got %d annotations' % len(annotations))
+
+    # get the fscores for the sequences
+    dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
+    fscores, recall, precision, term_count, reduced_f = dbc.get_enrichment_score(annotations, seqannotations, term_info=term_info)
+
+    if len(fscores) == 0:
+        msg = 'no terms found for wordcloud'
+        debug(4, msg)
+        return msg, 400
+
+    if score_method == 'fscore':
+        score = fscores
+    elif score_method == 'recall':
+        score = recall
+    elif score_method == 'precision':
+        score = precision
+    else:
+        msg = 'score_method %s not supported. options are: fscore, recall, precision' % score_method
+        debug(4, msg)
+        return msg, 400
+
+    # delete entries with emtpy key in scores
+    new_scores = {}
+    for ckey, cval in score.items():
+        if ckey == '':
+            continue
+        new_scores[ckey] = cval
+    score = new_scores
+
+    # normalize the fractions to a scale max=1 if needed
+    if normalize:
+        new_scores = {}
+        if score is not None:
+            maxval = max(score.values())
+            debug(1, 'normalizing score. maxval is %f' % maxval)
+            for ckey, cval in score.items():
+                new_scores[ckey] = score[ckey] / maxval
+        score = new_scores
+
+    return score
