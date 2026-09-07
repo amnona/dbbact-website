@@ -2106,6 +2106,19 @@ def download_fscores_sequences_form():
     return response
 
 
+def _get_colormap(name):
+    '''Get the colormap based on the name
+    
+    Works with both old and new matplotlib versions'''
+    try:
+        # Works in Matplotlib 3.9+ (and available since 3.5)
+        cmap = mpl.colormaps.get_cmap(name)
+    except AttributeError:
+        # Fallback for Matplotlib versions older than 3.5
+        cmap = mpl.cm.get_cmap(name)
+    return cmap
+
+
 def _get_color(word, font_size, position, orientation, font_path, random_state, fscore, recall, precision, term_count):
     '''Get the color for a wordcloud term based on the term_count and higher/lower
 
@@ -2132,11 +2145,11 @@ def _get_color(word, font_size, position, orientation, font_path, random_state, 
         count = 10
 
     if word[0] == '-':
-        cmap = mpl.cm.get_cmap('Oranges')
+        cmap = _get_colormap('Oranges')
         rgba = cmap(float(0.4 + count / 40), bytes=True)
         rgba = cmap(float(0.3 + count / 20), bytes=True)
     else:
-        cmap = mpl.cm.get_cmap('Purples')
+        cmap = _get_colormap('Purples')
         rgba = cmap(float(0.4 + count / 40), bytes=True)
         rgba = cmap(float(0.3 + count / 20), bytes=True)
 
