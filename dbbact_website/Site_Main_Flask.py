@@ -15,7 +15,11 @@ mpl.use('Agg')
 import numpy as np
 import scipy.stats
 
-from flask import Blueprint, request, render_template, make_response, redirect, url_for, Markup, render_template_string, send_from_directory, current_app, session, send_file, current_app
+from flask import Blueprint, request, render_template, make_response, redirect, url_for, render_template_string, send_from_directory, current_app, session, send_file, current_app
+try:
+    from markupsafe import Markup
+except ImportError:
+    from flask import Markup
 
 from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
 from . import enrichment
