@@ -10,6 +10,8 @@ The dbBact support forum is now live at: [dbbact.boards.net](https://dbbact.boar
 ## Installation
 dbBact-website requires the [dbBact-server](https://github.com/amnona/dbbact-server) server to be installed and running.
 
+It also requires the [calour](https://github.com/amnona/calour) package and the [dbbact-calour](https://github.com/amnona/dbbact-calour) package.
+
 To install dbBact-website, clone this repository and install the required Python packages:
 
 ```bash
