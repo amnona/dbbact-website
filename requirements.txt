@@ -1,0 +1,9 @@
+Flask
+gunicorn
+matplotlib
+numpy
+requests
+scipy
+wordcloud
+git+https://github.com/amnona/calour.git
+git+https://github.com/amnona/dbbact-calour.git
