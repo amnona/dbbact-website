@@ -957,7 +957,7 @@ def annotation_info(annotationid):
                render_template('footer.html'), 400)
     sequences = [cseq['seq'] for cseq in res.json().get('sequences', [])]
     webPage += '<h2>F-score wordcloud for annotation sequences</h2>'
-    webPage += draw_annotation_details([annotation], sequences=sequences, wordcloud_only=True)
+    webPage += draw_annotation_details([annotation], sequences=sequences, wordcloud_only=True, ignore_exp=[expid])
 
     webPage += render_template('annotdetail.html')
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('description', Markup.escape(annotation['description']))
@@ -1608,7 +1608,7 @@ def experiment_info(expid):
                    render_template('footer.html'), 400)
         sequences.update(cseq['seq'] for cseq in res.json().get('sequences', []))
     webPage += '<h2>F-score wordcloud for experiment sequences</h2>'
-    webPage += draw_annotation_details(annotations, sequences=list(sequences), wordcloud_only=True)
+    webPage += draw_annotation_details(annotations, sequences=list(sequences), wordcloud_only=True, ignore_exp=[expid])
     webPage += '<h2>Annotations for experiment:</h2>'
     webPage += draw_annotation_details(annotations, include_word_cloud=False, include_ratio=False)
     webPage += render_template('footer.html')
