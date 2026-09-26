@@ -788,6 +788,43 @@ def draw_sequences_annotations(seqs):
     return '', webPage
 
 
+def draw_sequences_wordcloud(seqs, ignore_exp=[]):
+    '''Draw the wordcloud for a list of sequences
+
+    Parameters
+    ----------
+    seqs : list of str
+        list of DNA sequences sequences to get annotations for
+    ignore_exp : list of int (optional)
+        list of experiment ids to ignore when calculating the wordcloud. None to include all experiments
+
+    Returns
+    -------
+    err : str
+        the error encountered or '' if ok
+    webpage : str
+        the webpage for the wordcloud of these sequences
+    '''
+    res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations',
+                       json={'sequences': seqs})
+    if res.status_code != 200:
+        msg = 'error getting annotations for sequences : %s' % Markup.escape(res.content)
+        debug(6, msg)
+        return msg, msg
+
+    res = res.json()
+    annotations = res['annotations']
+    seqannotations = res['seqannotations']
+    if len(seqannotations) == 0:
+        msg = 'None of the %d sequences were found in dbBact. Are these >100bp long 16S sequences?\nNote dbBact is populated mostly by EMP V4 (515F) amplicon sequences.' % len(seqs)
+        debug(3, msg)
+        return msg, msg
+    term_info = res['term_info']
+
+    webPage = draw_group_annotation_details(annotations, term_info=term_info, seqannotations=seqannotations, ignore_exp=ignore_exp, sequences=seqs, wordcloud_only=True)
+    return '', webPage
+
+
 def draw_sequences_annotations_compact(seqs, ignore_exp=[], draw_only_details=False, inexact_match=None, num_mismatches=None):
     '''Draw the webpage for annotations for a set of sequences
 
@@ -956,8 +993,9 @@ def annotation_info(annotationid):
                                message=message) +
                render_template('footer.html'), 400)
     sequences = [cseq['seq'] for cseq in res.json().get('sequences', [])]
+    # draw the wordcloud for the annotation sequences
     webPage += '<h2>F-score wordcloud for annotation sequences</h2>'
-    webPage += draw_annotation_details([annotation], sequences=sequences, wordcloud_only=True, ignore_exp=[expid])
+    webPage += draw_sequences_wordcloud(list(sequences), ignore_exp=[expid])
 
     webPage += render_template('annotdetail.html')
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('description', Markup.escape(annotation['description']))
@@ -1607,8 +1645,10 @@ def experiment_info(expid):
                                    message=message) +
                    render_template('footer.html'), 400)
         sequences.update(cseq['seq'] for cseq in res.json().get('sequences', []))
+    # draw the wordcloud for the experiment sequences
     webPage += '<h2>F-score wordcloud for experiment sequences</h2>'
-    webPage += draw_annotation_details(annotations, sequences=list(sequences), wordcloud_only=True, ignore_exp=[expid])
+    webPage += draw_sequences_wordcloud(list(sequences), ignore_exp=[expid])
+    # the annotations associated with the experiment
     webPage += '<h2>Annotations for experiment:</h2>'
     webPage += draw_annotation_details(annotations, include_word_cloud=False, include_ratio=False)
     webPage += render_template('footer.html')
