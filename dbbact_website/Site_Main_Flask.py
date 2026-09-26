@@ -948,6 +948,17 @@ def annotation_info(annotationid):
     webPage += '<h2>Annotations Details</h2>'
     webPage += draw_annotation_table([annotation])
 
+    res = requests.get(dbbact_server_address + '/annotations/get_full_sequences', json={'annotationid': annotationid})
+    if res.status_code != 200:
+        message = 'Error getting sequences for annotation ID %d.' % annotationid
+        return(render_header(title='Not found') +
+               render_template('error.html', title='Not found',
+                               message=message) +
+               render_template('footer.html'), 400)
+    sequences = [cseq['seq'] for cseq in res.json().get('sequences', [])]
+    webPage += '<h2>F-score wordcloud for annotation sequences</h2>'
+    webPage += draw_annotation_details([annotation], sequences=sequences, wordcloud_only=True)
+
     webPage += render_template('annotdetail.html')
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('description', Markup.escape(annotation['description']))
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('type', Markup.escape(annotation['annotationtype']))
@@ -1586,6 +1597,18 @@ def experiment_info(expid):
     for cannotation in annotations:
         cannotation['website_sequences'] = [-1]
     annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=True)
+    sequences = set()
+    for cannotation in annotations:
+        res = requests.get(dbbact_server_address + '/annotations/get_full_sequences', json={'annotationid': cannotation['annotationid']})
+        if res.status_code != 200:
+            message = 'Error getting sequences for annotation ID %d.' % cannotation['annotationid']
+            return(render_header(title='Not found') +
+                   render_template('error.html', title='Not found',
+                                   message=message) +
+                   render_template('footer.html'), 400)
+        sequences.update(cseq['seq'] for cseq in res.json().get('sequences', []))
+    webPage += '<h2>F-score wordcloud for experiment sequences</h2>'
+    webPage += draw_annotation_details(annotations, sequences=list(sequences), wordcloud_only=True)
     webPage += '<h2>Annotations for experiment:</h2>'
     webPage += draw_annotation_details(annotations, include_word_cloud=False, include_ratio=False)
     webPage += render_template('footer.html')
@@ -1832,7 +1855,7 @@ def user_info(username):
                render_template('footer.html'))
 
 
-def draw_annotation_details(annotations, seqannotations=None, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[], sequences=None):
+def draw_annotation_details(annotations, seqannotations=None, term_info=None, show_relative_freqs=False, include_word_cloud=True, include_ratio=True, ignore_exp=[], sequences=None, wordcloud_only=False):
     '''Draw the wordcloud and details for a list of annotations
     Converts the annotations list to dict, creates the seqannotations and calls draw_group_annotation_details()
 
@@ -1890,7 +1913,7 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
                 seqannotations.append( (cseqid, ok_anno) )
         else:
             seqannotations = (((0, list(annotations_dict.keys())),))
-    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=sequences)
+    wpart = draw_group_annotation_details(annotations_dict, seqannotations=seqannotations, term_info=term_info, include_word_cloud=include_word_cloud, ignore_exp=ignore_exp, sequences=sequences, wordcloud_only=wordcloud_only)
     return wpart
 
 
@@ -2401,7 +2424,7 @@ def old_dbbact(path):
     return json.dumps(res)
 
 
-def draw_group_annotation_details(annotations, seqannotations, term_info, include_word_cloud=True, ignore_exp=[], local_save_name=None, sequences=None):
+def draw_group_annotation_details(annotations, seqannotations, term_info, include_word_cloud=True, ignore_exp=[], local_save_name=None, sequences=None, wordcloud_only=False):
     '''
     Create wordcloud and table entries for a list of annotations
 
@@ -2457,6 +2480,8 @@ def draw_group_annotation_details(annotations, seqannotations, term_info, includ
         debug(2, 'drawing term pair word cloud')
         # wpart += draw_wordcloud_fscore(fscores, recall, precision, term_count)
         wpart += draw_wordcloud_fscore(reduced_f, recall, precision, term_count)
+        if wordcloud_only:
+            return wpart
         wpart += draw_download_button(sequences=sequences)
 
     wpart += render_template('tabs.html')
