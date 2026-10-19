@@ -20,6 +20,7 @@ try:
     from markupsafe import Markup
 except ImportError:
     from flask import Markup
+from werkzeug.utils import secure_filename
 
 from .utils import debug, get_fasta_seqs, get_dbbact_server_address, get_dbbact_server_color
 from . import enrichment
@@ -1967,7 +1968,7 @@ def draw_annotation_details(annotations, seqannotations=None, term_info=None, sh
     return wpart
 
 
-def draw_wordcloud_fscore(fscores, recall=None, precision=None, term_count={}):
+def draw_wordcloud_fscore(fscores, recall=None, precision=None, term_count={}, width=400, height=200):
     '''Draw the wordcloud for the terms in fscores and return an html section with the image embedded
 
     Parameters
@@ -1977,16 +1978,17 @@ def draw_wordcloud_fscore(fscores, recall=None, precision=None, term_count={}):
     precision: dict of {term(str): precision score(float)}, optional
     term_count: dict of {term(str): number of experiments with term(float)}, optional
         used to determine the color intensity
+    width, height: int, optional
+        the size of the wordcloud canvas (pixels)
 
     Returns
     -------
-    str: the html part with embedded wordcloud image
+    str: the html part with embedded wordcloud image and a download button for the vector pdf version
     '''
-    wordcloud_image = draw_cloud(fscores, recall, precision, term_count)
-    wordcloudimage = urllib.parse.quote(wordcloud_image)
+    wordcloud_image, wordcloud_pdf = draw_cloud(fscores, recall, precision, term_count, width=width, height=height)
     wpart = ''
-    if wordcloudimage:
-        wpart += render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(wordcloud_image))
+    if wordcloud_image:
+        wpart += render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(wordcloud_image), wordcloudpdf=wordcloud_pdf.decode())
     else:
         wpart += '<p></p>'
     return wpart
@@ -2232,7 +2234,56 @@ def _get_color(word, font_size, position, orientation, font_path, random_state, 
     return '#%s%s%s' % (red, green, blue)
 
 
-def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=None):
+def _wordcloud_to_pdf(wc, page_width=8):
+    '''Render a generated wordcloud as a vector pdf (text with embedded font, not a bitmap)
+
+    Re-draws each word of wc.layout_ as matplotlib text at the same position, size, orientation and color
+    as the wordcloud bitmap (wordcloud.to_image()).
+
+    Parameters
+    ----------
+    wc: wordcloud.WordCloud
+        the wordcloud (after generate_from_frequencies())
+    page_width: float, optional
+        the width of the pdf page (inches). height is set to keep the wordcloud aspect ratio
+
+    Returns
+    -------
+    bytes: the pdf file data
+    '''
+    from matplotlib.figure import Figure
+    from matplotlib.font_manager import FontProperties
+    from PIL import ImageFont
+
+    # points per wordcloud pixel
+    scale = page_width * 72 / wc.width
+    fig = Figure(figsize=(page_width, wc.height * scale / 72), facecolor=wc.background_color)
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0, wc.width)
+    ax.set_ylim(wc.height, 0)
+    ax.axis('off')
+    font_prop = FontProperties(fname=wc.font_path)
+    for (word, count), font_size, (y, x), orientation, color in wc.layout_:
+        # wordcloud places the top-left of the word ink bounding box at (x, y), so use the
+        # font metrics to get the baseline start point of the text
+        font = ImageFont.truetype(wc.font_path, font_size)
+        ascent, descent = font.getmetrics()
+        left, top, right, bottom = font.getbbox(word)
+        if orientation is None:
+            tx, ty, rotation = x - left, y + ascent - top, 0
+        else:
+            # rotated 90 degrees counter-clockwise
+            tx, ty, rotation = x + ascent - top, y + right, 90
+        ax.text(tx, ty, word, fontproperties=font_prop, fontsize=font_size * scale, color=color,
+                ha='left', va='baseline', rotation=rotation, rotation_mode='anchor')
+    figfile = BytesIO()
+    # pdf.fonttype 42 embeds the font as TrueType so the text stays editable (i.e. in illustrator)
+    with mpl.rc_context({'pdf.fonttype': 42}):
+        fig.savefig(figfile, format='pdf')
+    return figfile.getvalue()
+
+
+def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=None, width=400, height=200):
     '''
     Draw a wordcloud for a list of terms
 
@@ -2247,11 +2298,16 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
     term_count: dict of {term (str): number of experiments where the term was observed(int)}
         The number of unique experiments where the term annotations are coming from
     local_save_name : str or None (optional)
-        if str, save also as pdf to local file local_save_name (for MS figures) in high res
+        if str, save also the vector pdf to local file local_save_name (for MS figures)
+    width, height: int, optional
+        the size of the wordcloud canvas (pixels)
 
     Returns
     -------
-    BytesIO file with the image
+    figdata_png: bytes
+        base64 encoded png image of the wordcloud (for showing in the page), or '' if no words
+    figdata_pdf: bytes
+        base64 encoded vector pdf of the same wordcloud (for downloading), or '' if no words
     '''
     from wordcloud import WordCloud
     import matplotlib.pyplot as plt
@@ -2259,24 +2315,23 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
     debug(1, 'draw_cloud for %d words' % len(fscores))
     if len(fscores) == 0:
         debug(3, 'no words for wordcloud')
-        return ''
+        return '', ''
 
     # normalize the fractions to a scale max=1
-    # also sanitize the terms to remove new lines (wordcloud doesn't like them)
+    # also sanitize the terms to remove new lines and empty terms (wordcloud doesn't like them)
     new_scores = {}
     if fscores is not None:
         maxval = max(fscores.values())
         debug(1, 'normalizing fscores. maxval is %f' % maxval)
         for ckey, cval in fscores.items():
             sanitized_ckey = ckey.replace('\n', ' ')
+            if sanitized_ckey == '':
+                continue
             new_scores[sanitized_ckey] = fscores[ckey] / maxval
     fscores = new_scores
 
     # wc = WordCloud(background_color="white", relative_scaling=0.5, stopwords=set(),colormap="Blues")
-    if local_save_name is not None:
-        wc = WordCloud(width=400 * 3, height=200 * 3, background_color="white", relative_scaling=0.5, stopwords=set(), color_func=lambda *x, **y: _get_color(*x, **y, fscore=fscores, recall=recall, precision=precision, term_count=term_count))
-    else:
-        wc = WordCloud(background_color="white", relative_scaling=0.5, stopwords=set(), color_func=lambda *x, **y: _get_color(*x, **y, fscore=fscores, recall=recall, precision=precision, term_count=term_count))
+    wc = WordCloud(width=width, height=height, background_color="white", relative_scaling=0.5, stopwords=set(), color_func=lambda *x, **y: _get_color(*x, **y, fscore=fscores, recall=recall, precision=precision, term_count=term_count))
 
     if isinstance(fscores, str):
         debug(2, 'generating from words list')
@@ -2286,22 +2341,25 @@ def draw_cloud(fscores, recall={}, precision={}, term_count={}, local_save_name=
         wordcloud = wc.generate_from_frequencies(fscores)
     else:
         debug(4, 'unknown type for generate_wordcloud!')
-        return None
+        return '', ''
 
     fig = plt.figure()
     plt.imshow(wordcloud)
     plt.axis("off")
     fig.tight_layout()
     figfile = BytesIO()
-    if local_save_name is not None:
-        debug(1, 'saving wordcloud to local file %s' % local_save_name)
-        fig.savefig(local_save_name, format='pdf', bbox_inches='tight')
     fig.savefig(figfile, format='png', bbox_inches='tight')
     figfile.seek(0)  # rewind to beginning of file
     figdata_png = base64.b64encode(figfile.getvalue())
     figfile.close()
     plt.close()
-    return figdata_png
+
+    figdata_pdf = _wordcloud_to_pdf(wc)
+    if local_save_name is not None:
+        debug(1, 'saving wordcloud to local file %s' % local_save_name)
+        with open(local_save_name, 'wb') as fl:
+            fl.write(figdata_pdf)
+    return figdata_png, base64.b64encode(figdata_pdf)
 
 
 def get_term_info_for_annotations(annotations):
@@ -3269,8 +3327,6 @@ def wordcloud_analysis():
         'log': weigh the per-ASV f-scores by the log of the mean ASV prevalence in the experiment
         'rank': weigh the per-ASV f-scores by the rank of the mean ASV prevalence in the experiment
     '''
-    import matplotlib.pyplot as plt
-
     method = request.args.get('method', 'prevalence')
 
     err, table = _load_experiment_table()
@@ -3285,25 +3341,14 @@ def wordcloud_analysis():
 
     dbc = dbbact_calour.dbbact.DBBact(dburl=get_dbbact_server_address(), test_version=False)
     debug(2,'drawing wordcloud')
-    f = dbc.draw_wordcloud(table, freq_weighted=freq_weighted)
-    figfile = BytesIO()
-    f.savefig(figfile, format='png', bbox_inches='tight')
-    figfile.seek(0)  # rewind to beginning of file
-    figdata_png = base64.b64encode(figfile.getvalue())
-    figfile.close()
-    figdat_md5 = hashlib.md5(figdata_png).hexdigest()
-    figdata_tmp_file_name = os.path.join('./dbbact_website/tmp_files', figdat_md5)
-    f.savefig(figdata_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
-    if 'files_md5' not in session:
-        session['files_md5'] = {}
-    session['files_md5'][figdat_md5] = 'wordcloud.png'
-    plt.close(f.figure)
+    # draw it locally (and not using dbc.draw_wordcloud()) so we can also create the vector pdf for download
+    fscores, recall, precision, term_count, reduced_f = dbc.get_wordcloud_stats(exp=table, freq_weighted=freq_weighted)
+    wpart = draw_wordcloud_fscore(fscores, recall, precision, term_count, width=2000, height=1000)
     debug(2,'got the figure data')
     # table.filter_prevalence(0.1).export_html(output_file='./dbbact_website/templates/tmp_heatmap.html')
     # return render_template('tmp_heatmap.html')
 
-    # create an html page with a download button that downloads the e.feature_metadata pandas dataframe
-    return render_header() + render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(figdata_png), figure_link='/download_file/%s' % figdat_md5) + render_template('footer.html')
+    return render_header() + wpart + render_template('footer.html')
 
 
 @Site_Main_Flask_Obj.route('/interactive_metadata_submit', methods=['POST', 'GET'])
@@ -3329,7 +3374,7 @@ def interactive_metadata_submit2():
     '''The differential abundance+term enrichment analysis
     assumes the metadata_field, metadata_group1 and metadata_group2 are already in the session (from interactive_metadata_submit)
     '''
-    import matplotlib.pyplot as plt
+    import pandas as pd
 
     err, table = _load_experiment_table()
     if err:
@@ -3383,31 +3428,12 @@ def interactive_metadata_submit2():
     dd.save(dd_tmp_file_name)
     session['dd_tmp_file_name'] = dd_tmp_file_name
     debug(2, 'saved diff abundance results to tmp file %s' % dd_tmp_file_name)
-    # save the diff abundance features table to a tmp file and store it in the session
-    dd_features = dd.feature_metadata
-    dd_md5 = hashlib.md5(dd_features.to_csv().encode()).hexdigest()
-    dd_features_tmp_file_name = os.path.join('./dbbact_website/tmp_files', dd_md5)
-    dd_features.to_csv(dd_features_tmp_file_name, sep='\t', index=False)
-    if 'files_md5' not in session:
-        session['files_md5'] = {}
-    session['files_md5'][dd_md5] = 'diff_abundace_features.tsv'
-
+    # save the diff abundance features table to a tmp file for download
+    diff_abundance_link = _save_download_file(dd.feature_metadata.to_csv(sep='\t', index=False).encode('utf-8'), 'diff_abundance.tsv')
 
     f,e = dd.plot_diff_abundance_enrichment()
     debug(2,'got the term enrichment plot')
-    figfile = BytesIO()
-    f.figure.savefig(figfile, format='png', bbox_inches='tight')
-    figfile.seek(0)  # rewind to beginning of file
-    figdata_png = base64.b64encode(figfile.getvalue())
-    figfile.close()
-    # save also as a tmp file for later download
-    figdat_md5 = hashlib.md5(figdata_png).hexdigest()
-    figdata_tmp_file_name = os.path.join('./dbbact_website/tmp_files', figdat_md5)
-    f.figure.savefig(figdata_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
-    if 'files_md5' not in session:
-        session['files_md5'] = {}
-    session['files_md5'][figdat_md5] = 'enriched_terms.png'
-    plt.close(f.figure)
+    figdata_png, figure_link = _prepare_figure(f.figure, 'top_enriched_terms')
     debug(2,'got the figure data')
 
     # create an html page with a download button that downloads the e.feature_metadata pandas dataframe
@@ -3427,48 +3453,87 @@ def interactive_metadata_submit2():
         showpos = MAX_TERMS_TO_SHOW
 
     # concatenate the frst showneg rows with the last showpos rows
-    ee = e.feature_metadata[:showneg]
-    ee = ee.append(e.feature_metadata[-showpos:])
+    ee = pd.concat([e.feature_metadata[:showneg], e.feature_metadata[-showpos:]])
     # reverse the order
     ee = ee.iloc[::-1]
 
     term_results = [[x[1]['term'], x[1]['odif'], x[1]['pvals']] for x in ee.iterrows()]
 
-    # calculate the md5 checksum of the e.feature_metadata dataframe
-    # this is used to check if the user downloaded the same file as the one we created
-    # (to prevent malicious users from creating a fake file with the same name)
-    md5sum = hashlib.md5(e.feature_metadata.to_csv(sep='\t', index=False).encode('utf-8')).hexdigest()
-    if 'files_md5' not in session:
-        session['files_md5'] = {}
-    session['files_md5'][md5sum] = 'enriched_terms.tsv'
-    # save the dataframe to a file named by the md5sum in the tmp_files folder
-    enriched_tsv = os.path.join('./dbbact_website/tmp_files', md5sum)
-    e.feature_metadata.to_csv(enriched_tsv, sep='\t', index=False)
+    # save the enriched terms table to a tmp file for download
+    enriched_terms_link = _save_download_file(e.feature_metadata.to_csv(sep='\t', index=False).encode('utf-8'), 'enriched_terms.tsv')
 
-    return render_header() + render_template('enriched-terms.html', toptermimage=urllib.parse.quote(figdata_png), 
+    return render_header() + render_template('enriched-terms.html', toptermimage=figdata_png,
                                              field=metadata_field, group1=metadata_group1, group2=metadata_group2,group1_samples=group1_samples,group2_samples=group2_samples,group1_size=group1_size,group2_size=group2_size,terms=term_results,
-                                             enriched_terms_link='/download_file/%s' % md5sum, figure_link='/download_file/%s' % figdat_md5, diff_abundance_link='/download_file/%s' % dd_md5) + render_template('footer.html')
+                                             enriched_terms_link=enriched_terms_link, figure_link=figure_link, diff_abundance_link=diff_abundance_link) + render_template('footer.html')
+
+
+def _save_download_file(data, download_name):
+    '''Save data to a file in tmp_files (named by its md5) and return the link for downloading it using download_file()
+
+    Parameters
+    ----------
+    data : bytes
+        the file contents
+    download_name : str
+        the name (including extension) of the file the user will download
+
+    Returns
+    -------
+    str: the download link
+    '''
+    md5sum = hashlib.md5(data).hexdigest()
+    with open(os.path.join('./dbbact_website/tmp_files', md5sum), 'wb') as fl:
+        fl.write(data)
+    return '/download_file/%s/%s' % (md5sum, secure_filename(download_name))
+
+
+def _prepare_figure(fig, download_name):
+    '''Get the png of a matplotlib figure for showing in the page, and save a vector pdf version for downloading
+    Closes the figure when done
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+    download_name : str
+        the name (without extension) of the pdf file the user will download
+
+    Returns
+    -------
+    figdata_png : str
+        the quoted base64 encoded png (for embedding in the page using data:image/png;base64,)
+    figure_link : str
+        the link for downloading the pdf version of the figure
+    '''
+    import matplotlib.pyplot as plt
+
+    figfile = BytesIO()
+    fig.savefig(figfile, format='png', bbox_inches='tight')
+    figdata_png = base64.b64encode(figfile.getvalue())
+    figfile = BytesIO()
+    # pdf.fonttype 42 embeds the font as TrueType so the text stays editable (i.e. in illustrator)
+    with mpl.rc_context({'pdf.fonttype': 42}):
+        fig.savefig(figfile, format='pdf', bbox_inches='tight')
+    figure_link = _save_download_file(figfile.getvalue(), download_name + '.pdf')
+    plt.close(fig)
+    return urllib.parse.quote(figdata_png), figure_link
 
 
 @Site_Main_Flask_Obj.route('/download_file/<string:md5sum>')
-def download_file(md5sum):
-    '''Download the enriched terms table
+@Site_Main_Flask_Obj.route('/download_file/<string:md5sum>/<string:download_name>')
+def download_file(md5sum, download_name=None):
+    '''Download a file saved in tmp_files by _save_download_file()
 
     Parameters
     ----------
     md5sum : str
         The md5sum of the file to download
+    download_name : str or None, optional
+        the name of the downloaded file (also used to set the file type). None to use the md5sum
     '''
     debug(4,'downloading file for hash %s' % md5sum)
-    # if md5sum not in session.get('files_md5',{}).keys():
-    #     debug(4, 'hash %s not in session' % md5sum)
-    #     print(session.items())
-    #     return 'Error: file hash %s not found' % md5sum
-    # # get the file name from the session hash
-    # visible_file_name = session['files_md5'][md5sum]
-    # return the file
-    # return send_file('tmp_files/%s' % md5sum, as_attachment=True, download_name=visible_file_name)
-    return send_file('tmp_files/%s' % md5sum, as_attachment=True)
+    if download_name is not None:
+        download_name = secure_filename(download_name)
+    return send_from_directory('tmp_files', md5sum, as_attachment=True, download_name=download_name)
 
 
 @Site_Main_Flask_Obj.route('/single_term_analysis/<string:term>', methods=['POST', 'GET'])
@@ -3482,7 +3547,6 @@ def single_term_analysis(term):
     term : str
         The term to show
     '''
-    import matplotlib.pyplot as plt
     import calour as ca
     import calour_utils as cu
 
@@ -3508,19 +3572,7 @@ def single_term_analysis(term):
     group1_size = np.sum(dd.feature_metadata['_calour_stat']>0)
     group2_size = np.sum(dd.feature_metadata['_calour_stat']<0)
     f, overlaps, venn_pval = dbc.plot_term_venn_all(search_term,dd,max_size=np.max([group1_size,group2_size])*1.5, term_names=term)
-    figfile = BytesIO()
-    f.savefig(figfile, format='png', bbox_inches='tight')
-    figfile.seek(0)  # rewind to beginning of file
-    fig_venn_data_png = base64.b64encode(figfile.getvalue())
-    figfile.close()
-    # save for download button
-    fig_venn_data_md5 = hashlib.md5(fig_venn_data_png).hexdigest()
-    fig_venn_tmp_file_name = os.path.join('./dbbact_website/tmp_files', fig_venn_data_md5)
-    f.figure.savefig(fig_venn_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
-    if 'files_md5' not in session:
-        session['files_md5'] = {}
-    session['files_md5'][fig_venn_data_md5] = 'venn_%s.png' % search_term
-    plt.close(f.figure)
+    fig_venn_data_png, venn_figure_link = _prepare_figure(f.figure, 'venn_%s' % search_term)
     debug(2,'got the venn figure data')
 
     # create the per-sample f-score plot
@@ -3533,25 +3585,13 @@ def single_term_analysis(term):
     newexp = dbc.get_term_sample_fscores(table, search_term, ignore_exp=True, transform=None)
     # plot the per-sample f-scores
     labels, vals, f = cu.plot_violin_category(newexp, session['metadata_field'], '_dbbact_fscore_'+search_term, show_labels=False)
-    figfile = BytesIO()
-    f.savefig(figfile, format='png', bbox_inches='tight')
-    figfile.seek(0)  # rewind to beginning of file
-    fig_fscores_data_png = base64.b64encode(figfile.getvalue())
-    figfile.close()
-    # save for download button
-    fig_fscores_data_md5 = hashlib.md5(fig_fscores_data_png).hexdigest()
-    fig_fscores_tmp_file_name = os.path.join('./dbbact_website/tmp_files', fig_fscores_data_md5)
-    f.figure.savefig(fig_fscores_tmp_file_name, format='png', bbox_inches='tight', dpi=300)
-    if 'files_md5' not in session:
-        session['files_md5'] = {}
-    session['files_md5'][fig_fscores_data_md5] = 'fscores_%s.png' % search_term
-    plt.close(f.figure)
+    fig_fscores_data_png, fscores_figure_link = _prepare_figure(f.figure, 'fscores_%s' % search_term)
     sample_fscore_pval = scipy.stats.kruskal(*vals)[1]
 
-    return render_header() + render_template('enriched-term-info.html', venn_image=urllib.parse.quote(fig_venn_data_png), sample_fscore_image=urllib.parse.quote(fig_fscores_data_png),
+    return render_header() + render_template('enriched-term-info.html', venn_image=fig_venn_data_png, sample_fscore_image=fig_fscores_data_png,
                                              term=term, field=metadata_field, group1=metadata_group1, group1_samples=group1_size, group2=metadata_group2, group2_samples=group2_size,
                                              venn_pval=venn_pval, sample_fscore_pval=sample_fscore_pval,
-                                             venn_figure_link='/download_file/%s' % fig_venn_data_md5, fscores_figure_link='/download_file/%s' % fig_fscores_data_md5) + render_template('footer.html')
+                                             venn_figure_link=venn_figure_link, fscores_figure_link=fscores_figure_link) + render_template('footer.html')
 
 
 @Site_Main_Flask_Obj.route('/interactive_heatmap_submit', methods=['POST', 'GET'])
