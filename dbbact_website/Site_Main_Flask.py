@@ -476,13 +476,15 @@ def draw_enrichment_results(seqs1, seqs2, direction_text='(negative (red) LOWER 
         the html part with the enrichment tables
     '''
     webpage = ''
+    # get the annotations once for both the term and annotation enrichment (it is slow for many sequences)
+    seq_annotations = enrichment.get_seq_annotations_fast(list(set(seqs1).union(seqs2)), ignore_exp=ignore_exp)
     for term_type in ['term', 'annotation']:
         webpage += "<h2>%s enrichment</h2>" % term_type
         webpage += '%s<br>' % direction_text
         webpage += render_template('enrichment_results.html')
 
         debug(2, 'looking for enriched %s' % term_type)
-        err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type, ignore_exp=ignore_exp)
+        err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type, seq_annotations=seq_annotations)
         # err, terms, pval, odif = enrichment.calour_enrichment(seqs1, seqs2, term_type=term_type)
         if err:
             return err, ''

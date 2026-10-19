@@ -125,6 +125,10 @@ def get_seq_annotations_fast(sequences, ignore_exp=()):
     debug(2, 'get_seq_annotations_fast for %d sequences' % len(sequences))
     rdata = {}
     rdata['sequences'] = sequences
+    # we don't use the term info, taxonomy and other annotations from the experiments, and they are slow to get for many sequences
+    rdata['get_term_info'] = False
+    rdata['get_taxonomy'] = False
+    rdata['get_all_exp_annotations'] = False
     res = requests.get(get_dbbact_server_address() + '/sequences/get_fast_annotations', json=rdata)
     if res.status_code != 200:
         debug(5, 'error getting fast annotations for sequence list')
@@ -351,7 +355,7 @@ def get_annotation_term_counts(annotations):
     return res
 
 
-def enrichment(seqs1, seqs2, term_type="term", ignore_exp=()):
+def enrichment(seqs1, seqs2, term_type="term", ignore_exp=(), seq_annotations=None):
     '''
     Do dbbact term and annotation enrichment analysis for 2 lists of sequences (comparing first to second list of sequences)
 
@@ -367,6 +371,9 @@ def enrichment(seqs1, seqs2, term_type="term", ignore_exp=()):
         "annotation" : analyze the annotations associated with each sequence
     ignore_exp: list of int, optional
         ids of experiments whose annotations are ignored in the analysis
+    seq_annotations: tuple or None, optional
+        the output of get_seq_annotations_fast() for all the sequences in seqs1 and seqs2 (to save getting it again when
+        calling enrichment() for several term_types). None (default) to get it from dbBact (using ignore_exp)
 
 
     Returns
@@ -390,8 +397,12 @@ def enrichment(seqs1, seqs2, term_type="term", ignore_exp=()):
     all_seqs = list(all_seqs)
 
     # get the annotations for the sequences
+    if seq_annotations is None:
+        seq_annotations = get_seq_annotations_fast(all_seqs, ignore_exp=ignore_exp)
     info = {}
-    info['sequence_terms'], info['sequence_annotations'], info['annotations'] = get_seq_annotations_fast(all_seqs, ignore_exp=ignore_exp)
+    info['sequence_terms'], info['sequence_annotations'], info['annotations'] = seq_annotations
+    if info['sequence_annotations'] is None:
+        return 'Error getting the annotations for the sequences from dbBact', None, None, None
 
     if term_type == 'term':
         debug(2, 'getting all_term counts')
