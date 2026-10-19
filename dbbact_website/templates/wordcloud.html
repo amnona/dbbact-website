@@ -9,7 +9,9 @@
   <div class="panel-body" style="padding: 5px;">
     <img src="data:image/png;base64,{{ wordcloudimage }}" alt="common ontology terms"/>
   </div>
-  <!-- add download button -->
-  <a href="{{ figure_link }}" download="wordcloud.png"><button type = "button">Download</button></a>
+  <!-- add download button (vector pdf version of the wordcloud) -->
+  {% if wordcloudpdf %}
+  <a href="data:application/pdf;base64,{{ wordcloudpdf }}" download="wordcloud.pdf"><button type = "button">Download PDF</button></a>
+  {% endif %}
 
 </div>

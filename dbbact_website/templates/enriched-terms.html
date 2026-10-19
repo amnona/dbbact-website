@@ -13,7 +13,7 @@
       Contains {{ group1_size }} sequences significantly higher compared to group2<br>
       <h3>Group 2: {{ group2 }} ({{group2_samples}} samples)</h3>
       Contains {{ group2_size }} sequences significantly higher compared to group1<br>
-      <a href="{{ diff_abundance_link }}" download="diff_abundance.tsv"><button type = "button">Download ASVs</button></a>
+      <a href="{{ diff_abundance_link }}" download><button type = "button">Download ASVs</button></a>
     </div>
     <div class="panel-body" style="padding: 5px;">
       <div id="top-terms-figure" class="panel panel-default">
@@ -21,7 +21,7 @@
       (between sequences significantly higher in group1 vs. group2)<br>
       <img src="data:image/png;base64,{{ toptermimage }}" alt="top enriched terms"/><br>
       <!-- add download button -->
-        <a href="{{ figure_link }}" download="top_enriched_terms.png"><button type = "button">Download</button></a>
+        <a href="{{ figure_link }}" download><button type = "button">Download PDF</button></a>
     </div>
     <div id="terms list" class="panel panel-default">
         <h2>Enriched terms list</h2>
@@ -61,6 +61,6 @@
           </tbody>
         </table>
         <!-- add a nice button to download the file provided in the enriched_terms_tsv variable -->
-        <a href="{{ enriched_terms_link }}" download="enriched_terms.tsv"><button type = "button">Download terms</button></a>
+        <a href="{{ enriched_terms_link }}" download><button type = "button">Download terms</button></a>
   </div>
     
