@@ -106,7 +106,22 @@ def getannotationstrings2(cann):
     return cdesc
 
 
-def get_seq_annotations_fast(sequences):
+def get_seq_annotations_fast(sequences, ignore_exp=()):
+    '''Get the annotations and terms for each sequence
+
+    Parameters
+    ----------
+    sequences: list of str
+        the sequences (ACGT) to get the annotations for
+    ignore_exp: list of int, optional
+        ids of experiments whose annotations are ignored
+
+    Returns
+    -------
+    sequence_terms: dict of {sequence(str): list of terms(str)}
+    sequence_annotations: dict of {sequence(str): list of annotationids(int)}
+    annotations: dict of {annotationid(int): annotation(dict)}
+    '''
     debug(2, 'get_seq_annotations_fast for %d sequences' % len(sequences))
     rdata = {}
     rdata['sequences'] = sequences
@@ -126,8 +141,10 @@ def get_seq_annotations_fast(sequences):
         cpos = cseqannotation[0]
         # need str since json dict is always string
         cseq = sequences[cpos]
-        sequence_annotations[cseq].extend(cseqannotation[1])
         for cannotation in cseqannotation[1]:
+            if res['annotations'][str(cannotation)]['expid'] in ignore_exp:
+                continue
+            sequence_annotations[cseq].append(cannotation)
             for k, v in res['annotations'][str(cannotation)]['parents'].items():
                 if k == 'high' or k == 'all':
                     for cterm in v:
@@ -334,7 +351,7 @@ def get_annotation_term_counts(annotations):
     return res
 
 
-def enrichment(seqs1, seqs2, term_type="term"):
+def enrichment(seqs1, seqs2, term_type="term", ignore_exp=()):
     '''
     Do dbbact term and annotation enrichment analysis for 2 lists of sequences (comparing first to second list of sequences)
 
@@ -348,6 +365,8 @@ def enrichment(seqs1, seqs2, term_type="term"):
         type of the term to analyze for enrichment. can be:
         "term" : analyze the terms per annotation (not including parent terms)
         "annotation" : analyze the annotations associated with each sequence
+    ignore_exp: list of int, optional
+        ids of experiments whose annotations are ignored in the analysis
 
 
     Returns
@@ -372,7 +391,7 @@ def enrichment(seqs1, seqs2, term_type="term"):
 
     # get the annotations for the sequences
     info = {}
-    info['sequence_terms'], info['sequence_annotations'], info['annotations'] = get_seq_annotations_fast(all_seqs)
+    info['sequence_terms'], info['sequence_annotations'], info['annotations'] = get_seq_annotations_fast(all_seqs, ignore_exp=ignore_exp)
 
     if term_type == 'term':
         debug(2, 'getting all_term counts')

@@ -435,6 +435,7 @@ def enrichment_results():
                 return(webPageTemp, 400)
         else:
             webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str='Error: Missing fasta file name')
+            return(webPageTemp, 400)
     else:
         # only used for example query
         with open("dbbact_website/enrichment_example/seqs-sal.fa", "r") as myfile:
@@ -445,21 +446,48 @@ def enrichment_results():
                 return(webPageTemp, 400)
     debug(2, 'Loaded %d sequences for seqs2 file' % len(seqs2))
 
+    err, enrichment_part = draw_enrichment_results(seqs1, seqs2)
+    if err:
+        webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str=err)
+        return(webPageTemp, 400)
     webpage = render_header()
     # webpage = render_template('info_header.html')
+    webpage += enrichment_part
+    return webpage
+
+
+def draw_enrichment_results(seqs1, seqs2, direction_text='(negative (red) LOWER in fasta file 1, positive (blue) HIGHER in fasta file 1)', ignore_exp=()):
+    '''Draw the term and annotation enrichment tables comparing two sets of sequences
+
+    Parameters
+    ----------
+    seqs1, seqs2: list of str
+        the two sets of sequences (ACGT) to compare
+    direction_text: str, optional
+        the html explaining the direction of the effect (positive is higher in seqs1)
+    ignore_exp: list of int, optional
+        ids of experiments whose annotations are ignored in the analysis
+
+    Returns
+    -------
+    err: str
+        the error encountered or '' if ok
+    webpage: str
+        the html part with the enrichment tables
+    '''
+    webpage = ''
     for term_type in ['term', 'annotation']:
         webpage += "<h2>%s enrichment</h2>" % term_type
-        webpage += '(negative (red) LOWER in fasta file 1, positive (blue) HIGHER in fasta file 1)<br>'
+        webpage += '%s<br>' % direction_text
         webpage += render_template('enrichment_results.html')
 
         debug(2, 'looking for enriched %s' % term_type)
-        err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type)
+        err, terms, pval, odif = enrichment.enrichment(seqs1, seqs2, term_type=term_type, ignore_exp=ignore_exp)
         # err, terms, pval, odif = enrichment.calour_enrichment(seqs1, seqs2, term_type=term_type)
+        if err:
+            return err, ''
         debug(2, 'found %d enriched' % len(terms))
 
-        if err:
-            webPageTemp = render_header(title='Error') + render_template('error_page.html', error_str=err)
-            return(webPageTemp, 400)
         for idx, cterm in enumerate(terms):
             if odif[idx] < 0:
                 ccolor = 'red'
@@ -471,7 +499,7 @@ def enrichment_results():
             webpage += "</tr>"
             webpage += '</span>'
         webpage += "</table>"
-    return webpage
+    return '', webpage
 
 
 @Site_Main_Flask_Obj.route('/search_results', methods=['POST', 'GET'])
@@ -986,23 +1014,6 @@ def annotation_info(annotationid):
     webPage += '<h2>Annotations Details</h2>'
     webPage += draw_annotation_table([annotation])
 
-    res = requests.get(dbbact_server_address + '/annotations/get_full_sequences', json={'annotationid': annotationid})
-    if res.status_code != 200:
-        message = 'Error getting sequences for annotation ID %d.' % annotationid
-        return(render_header(title='Not found') +
-               render_template('error.html', title='Not found',
-                               message=message) +
-               render_template('footer.html'), 400)
-    sequences = [cseq['seq'] for cseq in res.json().get('sequences', [])]
-    # draw the wordcloud for the annotation sequences
-    webPage += '<h2>F-score wordcloud for annotation sequences</h2>'
-    err, wordcloud = draw_sequences_wordcloud(list(sequences), ignore_exp=[expid])
-    if err:
-        return(render_header(title='Error') +
-               render_template('error_page.html', error_str=err) +
-               render_template('footer.html'), 400)
-    webPage += wordcloud
-
     webPage += render_template('annotdetail.html')
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('description', Markup.escape(annotation['description']))
     webPage += '<tr><td>%s</td><td>%s</td></tr>' % ('type', Markup.escape(annotation['annotationtype']))
@@ -1041,6 +1052,14 @@ def annotation_info(annotationid):
 
     webPage += '<h2>Sequences</h2>'
     webPage += draw_download_fasta_button(annotationid)
+    # the wordcloud is meaningful only if all the annotation sequences share the same context (i.e. not for diffexp)
+    if annotation['annotationtype'] in ('common', 'dominant'):
+        webPage += draw_annotation_wordcloud_button(annotationid)
+    # for diffexp, compare the high and low sequences (if the opposite direction annotation exists)
+    if annotation['annotationtype'] == 'diffexp':
+        err, reverse_annotations = get_reverse_diffexp_annotations(annotation)
+        if len(reverse_annotations) > 0:
+            webPage += draw_annotation_enrichment_button(annotationid)
 
     # add the ontology parent terms for the annotation
     webPage += '<h2>Ontology terms (including parents)</h2>'
@@ -1150,6 +1169,215 @@ def draw_download_fasta_button(annotationid):
         html for the download button with the link to the fasta file download page
     '''
     webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-download-alt"></i> Download FASTA</button></div>' % url_for('.annotation_seq_download', annotationid=annotationid)
+    return webPage
+
+
+def draw_annotation_wordcloud_button(annotationid):
+    '''
+    Draw a button with a link to the wordcloud page of the annotation sequences
+
+    Parameters
+    ----------
+    annotationid : int
+        the annotationid for which to draw the wordcloud
+
+    Returns
+    -------
+    webPage : str
+        html for the button with the link to the annotation wordcloud page
+    '''
+    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-cloud"></i> Sequences wordcloud</button></div>' % url_for('.annotation_wordcloud', annotationid=annotationid)
+    return webPage
+
+
+@Site_Main_Flask_Obj.route('/annotation_wordcloud/<int:annotationid>')
+def annotation_wordcloud(annotationid):
+    '''
+    Show the f-score wordcloud for all the sequences of an annotation.
+    Annotations from the experiment of the annotation are ignored when calculating the wordcloud.
+
+    Parameters
+    ----------
+    annotationid : int
+        the annotationid for which to draw the wordcloud
+    '''
+    res = requests.get(get_dbbact_server_address() + '/annotations/get_annotation', params={'annotationid': annotationid})
+    if res.status_code != 200:
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str='Annotation ID %d was not found' % annotationid) +
+               render_template('footer.html'), 400)
+    annotation = res.json()
+    expid = annotation['expid']
+
+    err, sequences = get_annotation_sequences(annotationid)
+    if err:
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str=err) +
+               render_template('footer.html'), 400)
+
+    err, wordcloud = draw_sequences_wordcloud(sequences, ignore_exp=[expid])
+    if err:
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str=err) +
+               render_template('footer.html'), 400)
+
+    webPage = render_header(title='Annotation %d wordcloud' % annotationid)
+    webPage += '<h1>F-score wordcloud for annotation <a href=%s>%d</a> sequences</h1>' % (url_for('.annotation_info', annotationid=annotationid), annotationid)
+    webPage += '<div style="margin: 20px;"><blockquote style="font-size: 1em;"><p>%s</p></blockquote></div>\n' % Markup.escape(getannotationstrings(annotation))
+    webPage += '<p>Wordcloud of the dbBact terms associated with the %d annotation sequences, ignoring annotations from the same experiment (<a href=%s>%d</a>)</p>' % (len(sequences), url_for('.experiment_info', expid=expid), expid)
+    webPage += wordcloud
+    webPage += render_template('footer.html')
+    return webPage
+
+
+def get_annotation_sequences(annotationid):
+    '''Get the sequences of an annotation
+
+    Parameters
+    ----------
+    annotationid : int
+
+    Returns
+    -------
+    err : str
+        the error encountered or '' if ok
+    sequences : list of str
+        the annotation sequences (ACGT)
+    '''
+    res = requests.get(dbbact_server_address + '/annotations/get_full_sequences', json={'annotationid': annotationid})
+    if res.status_code != 200:
+        msg = 'Error getting sequences for annotation ID %d' % annotationid
+        debug(6, '%s: %s' % (msg, res.content))
+        return msg, []
+    return '', [cseq['seq'] for cseq in res.json().get('sequences', [])]
+
+
+def _get_diffexp_terms(annotation):
+    '''Get the high, low and all terms of an annotation
+
+    Returns
+    -------
+    high, low, all: set of str
+    '''
+    terms = defaultdict(set)
+    for cdetail in annotation['details']:
+        terms[cdetail[0]].add(cdetail[1])
+    return terms['high'], terms['low'], terms['all']
+
+
+def get_reverse_diffexp_annotations(annotation):
+    '''Find the annotations with the opposite direction of a diffexp annotation.
+    These are the diffexp annotations from the same experiment with the high and low terms swapped and the same "all" terms
+    (i.e. for "high in acetate compared to propionate in sweden" it is "high in propionate compared to acetate in sweden")
+
+    Parameters
+    ----------
+    annotation : dict
+        the diffexp annotation (from /annotations/get_annotation)
+
+    Returns
+    -------
+    err : str
+        the error encountered or '' if ok
+    reverse_annotations : list of dict
+        the opposite direction annotations (empty if not found)
+    '''
+    high, low, all_terms = _get_diffexp_terms(annotation)
+    if len(high) == 0 or len(low) == 0:
+        return '', []
+    res = requests.get(dbbact_server_address + '/experiments/get_annotations', json={'expId': annotation['expid']})
+    if res.status_code != 200:
+        msg = 'Error getting annotations for experiment %s' % annotation['expid']
+        debug(6, '%s: %s' % (msg, res.content))
+        return msg, []
+    reverse_annotations = []
+    for cannotation in res.json()['annotations']:
+        if cannotation['annotationtype'] != 'diffexp' or cannotation['annotationid'] == annotation['annotationid']:
+            continue
+        if _get_diffexp_terms(cannotation) == (low, high, all_terms):
+            reverse_annotations.append(cannotation)
+    return '', reverse_annotations
+
+
+def draw_annotation_enrichment_button(annotationid):
+    '''
+    Draw a button with a link to the term enrichment page of a diffexp annotation (high vs. low sequences)
+
+    Parameters
+    ----------
+    annotationid : int
+        the diffexp annotationid
+
+    Returns
+    -------
+    webPage : str
+        html for the button with the link to the annotation enrichment page
+    '''
+    webPage = '<div style="margin: 20px"><button class="btn btn-default" onclick="location.href=\'%s\';"><i class="glyphicon glyphicon-stats"></i> Term enrichment (high vs. low sequences)</button></div>' % url_for('.annotation_enrichment', annotationid=annotationid)
+    return webPage
+
+
+@Site_Main_Flask_Obj.route('/annotation_enrichment/<int:annotationid>')
+def annotation_enrichment(annotationid):
+    '''
+    Show the term enrichment comparing the sequences of a diffexp annotation (higher in the "high" group)
+    to the sequences of the opposite direction annotations from the same experiment (higher in the "low" group).
+    Annotations from the experiment of the annotation are ignored in the enrichment analysis.
+
+    Parameters
+    ----------
+    annotationid : int
+        the diffexp annotationid
+    '''
+    res = requests.get(get_dbbact_server_address() + '/annotations/get_annotation', params={'annotationid': annotationid})
+    if res.status_code != 200:
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str='Annotation ID %d was not found' % annotationid) +
+               render_template('footer.html'), 400)
+    annotation = res.json()
+    if annotation['annotationtype'] != 'diffexp':
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str='Annotation ID %d is not a diffexp annotation' % annotationid) +
+               render_template('footer.html'), 400)
+    expid = annotation['expid']
+    high, low, all_terms = _get_diffexp_terms(annotation)
+
+    err, reverse_annotations = get_reverse_diffexp_annotations(annotation)
+    if not err and len(reverse_annotations) == 0:
+        err = 'No annotation with the opposite direction (higher in %s compared to %s) found in experiment %d' % (', '.join(sorted(low)), ', '.join(sorted(high)), expid)
+    if err:
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str=err) +
+               render_template('footer.html'), 400)
+
+    err, seqs_high = get_annotation_sequences(annotationid)
+    seqs_low = set()
+    for cannotation in reverse_annotations:
+        if err:
+            break
+        err, cseqs = get_annotation_sequences(cannotation['annotationid'])
+        seqs_low.update(cseqs)
+    if err:
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str=err) +
+               render_template('footer.html'), 400)
+
+    high_str = Markup.escape(', '.join(sorted(high)))
+    low_str = Markup.escape(', '.join(sorted(low)))
+    err, enrichment_part = draw_enrichment_results(seqs_high, list(seqs_low), ignore_exp=[expid],
+                                                   direction_text='(positive (blue) higher in %s sequences, negative (red) higher in %s sequences)' % (high_str, low_str))
+    if err:
+        return(render_header(title='Error') +
+               render_template('error_page.html', error_str=err) +
+               render_template('footer.html'), 400)
+
+    reverse_links = ', '.join('<a href=%s>%d</a>' % (url_for('.annotation_info', annotationid=x['annotationid']), x['annotationid']) for x in reverse_annotations)
+    webPage = render_header(title='Annotation %d term enrichment' % annotationid)
+    webPage += '<h1>Term enrichment for annotation <a href=%s>%d</a></h1>' % (url_for('.annotation_info', annotationid=annotationid), annotationid)
+    webPage += '<div style="margin: 20px;"><blockquote style="font-size: 1em;"><p>%s</p></blockquote></div>\n' % Markup.escape(getannotationstrings(annotation))
+    webPage += '<p>Comparing the %d sequences higher in %s (annotation %d) to the %d sequences higher in %s (annotation %s), ignoring annotations from the same experiment (<a href=%s>%d</a>)</p>' % (len(seqs_high), high_str, annotationid, len(seqs_low), low_str, reverse_links, url_for('.experiment_info', expid=expid), expid)
+    webPage += enrichment_part
+    webPage += render_template('footer.html')
     return webPage
 
 
@@ -1638,30 +1866,10 @@ def experiment_info(expid):
     # get the experiment annotations
     res = requests.get(dbbact_server_address + '/experiments/get_annotations', json={'expId': expid})
     annotations = res.json()['annotations']
-    for cannotation in annotations:
-        cannotation['website_sequences'] = [-1]
     annotations = sorted(annotations, key=lambda x: x.get('num_sequences', 0), reverse=True)
-    sequences = set()
-    for cannotation in annotations:
-        res = requests.get(dbbact_server_address + '/annotations/get_full_sequences', json={'annotationid': cannotation['annotationid']})
-        if res.status_code != 200:
-            message = 'Error getting sequences for annotation ID %d.' % cannotation['annotationid']
-            return(render_header(title='Not found') +
-                   render_template('error.html', title='Not found',
-                                   message=message) +
-                   render_template('footer.html'), 400)
-        sequences.update(cseq['seq'] for cseq in res.json().get('sequences', []))
-    # draw the wordcloud for the experiment sequences
-    webPage += '<h2>F-score wordcloud for experiment sequences</h2>'
-    err, wordcloud = draw_sequences_wordcloud(list(sequences), ignore_exp=[expid])
-    if err:
-        return(render_header(title='Error') +
-               render_template('error_page.html', error_str=err) +
-               render_template('footer.html'), 400)
-    webPage += wordcloud
     # the annotations associated with the experiment
     webPage += '<h2>Annotations for experiment:</h2>'
-    webPage += draw_annotation_details(annotations, include_word_cloud=False, include_ratio=False)
+    webPage += draw_annotation_table(annotations)
     webPage += render_template('footer.html')
     return webPage
 
@@ -1990,7 +2198,7 @@ def draw_wordcloud_fscore(fscores, recall=None, precision=None, term_count={}, w
     if wordcloud_image:
         wpart += render_template('wordcloud.html', wordcloudimage=urllib.parse.quote(wordcloud_image), wordcloudpdf=wordcloud_pdf.decode())
     else:
-        wpart += '<p></p>'
+        wpart += '<p>No terms found for the wordcloud</p>'
     return wpart
 
 
